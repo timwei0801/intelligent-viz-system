@@ -60,31 +60,36 @@
 ```bash
 git clone https://github.com/your-username/intelligent-viz-system.git
 cd intelligent-viz-system
+```
 
-設置 Python 環境
-
+2. **設置 Python 環境**
+```bash
 bashconda create -n vizml python=3.9 -y
 conda activate vizml
 conda install pandas numpy scikit-learn matplotlib -y
+```
 
-安裝後端依賴
-
+3. **安裝後端依賴**
+```bash
 bashcd backend
 npm install
+```
 
-安裝前端依賴
-
+4. **安裝前端依賴**
+```bash
 bashcd frontend
 npm install
+```
 
-環境配置
-
+5. **環境配置**
+```bash
 bashcd backend
 cp .env.example .env
 # 編輯 .env 文件，添加您的 Claude API 金鑰
+```
 
-啟動服務
-
+6. **啟動服務**
+```bash
 bash# 啟動後端 (終端 1)
 cd backend
 node server.js
@@ -92,7 +97,8 @@ node server.js
 # 啟動前端 (終端 2)
 cd frontend
 npm start
-使用方法
+
+## 使用方法
 
 上傳資料：拖拽 CSV/Excel/JSON 檔案到上傳區域
 查看分析：系統自動分析資料結構和統計特徵
