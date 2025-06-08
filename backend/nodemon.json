@@ -1,0 +1,11 @@
+{
+  "ignore": [
+    "uploads/*",
+    "python-scripts/temp_data_*.json",
+    "python-scripts/*.log",
+    "node_modules/*",
+    ".git"
+  ],
+  "ext": "js,json",
+  "verbose": true
+}

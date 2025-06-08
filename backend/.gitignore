@@ -1,0 +1,6 @@
+node_modules/
+.env
+uploads/
+python-scripts/temp_data_*.json
+*.log
+.DS_Store
