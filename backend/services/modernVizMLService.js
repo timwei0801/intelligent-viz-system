@@ -133,32 +133,71 @@ class ModernVizMLService {
       let recommendations = [];
       let confidence = 0.8;
       
-      // 預測邏輯
+      // 增強的預測邏輯 - 支援更多圖表類型
+      
+      // 基礎統計圖表
       if (categoricalCols >= 1 && numericCols >= 1) {
-        recommendations.push('bar', 'grouped_bar');
-        console.log('推薦: bar, grouped_bar (類別+數值)');
+        recommendations.push('bar', 'doughnut', 'pie');
+        if (categoricalCols >= 2) {
+          recommendations.push('funnel');
+        }
+        console.log('推薦: bar, doughnut, pie (類別+數值)');
       }
       
+      // 數值關係圖表
       if (numericCols >= 2) {
-        recommendations.push('scatter', 'line');
-        console.log('推薦: scatter, line (多數值欄)');
+        recommendations.push('scatter', 'line', 'area');
+        if (numericCols >= 3) {
+          recommendations.push('bubble', 'heatmap');
+        }
+        console.log('推薦: scatter, line, area (多數值欄)');
       }
       
+      // 多維度比較
+      if (numericCols >= 3 && numericCols <= 8) {
+        recommendations.push('radar', 'polarArea');
+        console.log('推薦: radar, polarArea (多維度)');
+      }
+      
+      // 統計分析圖表
+      if (numRows >= 20 && numericCols >= 1) {
+        recommendations.push('histogram', 'boxplot');
+        console.log('推薦: histogram, boxplot (大量數值資料)');
+      }
+      
+      // 時間序列檢測
+      if (this.hasTimeColumn(features)) {
+        recommendations.push('line', 'area', 'waterfall');
+        console.log('推薦: line, area, waterfall (時間序列)');
+      }
+      
+      // 比例關係
       if (categoricalCols >= 1) {
-        recommendations.push('pie');
-        console.log('推薦: pie (有類別欄)');
+        if (!recommendations.includes('pie')) recommendations.push('pie');
+        if (!recommendations.includes('doughnut')) recommendations.push('doughnut');
+        console.log('推薦: pie, doughnut (比例關係)');
       }
       
+      // 確保至少有基本推薦
       if (recommendations.length === 0) {
-        recommendations = ['bar', 'line'];
+        recommendations = ['bar', 'line', 'pie'];
         confidence = 0.6;
-        console.log('使用預設推薦: bar, line');
+        console.log('使用預設推薦: bar, line, pie');
       }
+      
+      // 去重並限制數量
+      recommendations = [...new Set(recommendations)].slice(0, 8);
 
       const result = {
-        recommended_charts: recommendations.slice(0, 5),
+        recommended_charts: recommendations,
         confidence: confidence,
-        reasoning: `基於 ${numericCols} 個數值欄位和 ${categoricalCols} 個類別欄位的分析`,
+        reasoning: this.generateReasoning(numericCols, categoricalCols, numRows, recommendations),
+        feature_analysis: {
+          numeric_columns: numericCols,
+          categorical_columns: categoricalCols,
+          total_rows: numRows,
+          total_columns: numCols
+        },
         status: "success"
       };
 
@@ -169,6 +208,57 @@ class ModernVizMLService {
       console.error('=== 視覺化預測錯誤 ===', error);
       throw error;
     }
+  }
+
+  // 生成推薦理由
+  generateReasoning(numericCols, categoricalCols, numRows, recommendations) {
+    let reasoning = `基於資料分析：`;
+    
+    if (numericCols > 0) {
+      reasoning += `${numericCols}個數值欄位`;
+    }
+    
+    if (categoricalCols > 0) {
+      reasoning += `${numericCols > 0 ? '和' : ''}${categoricalCols}個類別欄位`;
+    }
+    
+    reasoning += `，共${numRows}筆資料。`;
+    
+    // 針對推薦的圖表類型給出具體理由
+    const chartReasons = [];
+    
+    if (recommendations.includes('bar') || recommendations.includes('doughnut')) {
+      chartReasons.push('適合比較不同類別的數值');
+    }
+    
+    if (recommendations.includes('scatter') || recommendations.includes('bubble')) {
+      chartReasons.push('適合探索變數間的關係');
+    }
+    
+    if (recommendations.includes('histogram') || recommendations.includes('boxplot')) {
+      chartReasons.push('適合分析數值分布特徵');
+    }
+    
+    if (recommendations.includes('radar')) {
+      chartReasons.push('適合多維度績效比較');
+    }
+    
+    if (recommendations.includes('heatmap')) {
+      chartReasons.push('適合顯示變數相關性');
+    }
+    
+    if (chartReasons.length > 0) {
+      reasoning += ` 推薦的圖表${chartReasons.join('，')}。`;
+    }
+    
+    return reasoning;
+  }
+
+  // 檢測是否有時間欄位
+  hasTimeColumn(features) {
+    // 這裡可以加入更複雜的時間欄位檢測邏輯
+    // 目前簡化為檢查是否有可能的時間模式
+    return false; // 暫時返回 false，後續可以改進
   }
 
   async recommendVisualization(data) {
