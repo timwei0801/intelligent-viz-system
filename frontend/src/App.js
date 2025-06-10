@@ -1,3 +1,7 @@
+// ==========================================
+// 檔案位置: frontend/src/App.js (完整修復版)
+// ==========================================
+
 import React, { useState } from 'react';
 import {
   Container,
@@ -17,7 +21,6 @@ import {
   Tooltip,
   Tabs,
   Tab,
-  Divider,
   ButtonGroup
 } from '@mui/material';
 import { 
@@ -58,7 +61,10 @@ import {
 } from 'react-chartjs-2';
 import axios from 'axios';
 
-// 導入我們的修復後組件
+// 引入 CSS 樣式
+import './App.css';
+
+// 導入現有的組件（確保這些組件存在）
 import { 
   DataPreviewTable, 
   ChartCustomizationDialog, 
@@ -66,7 +72,15 @@ import {
   DataQualityChecker 
 } from './DataManipulationComponents';
 
-import './App.css';
+import PlotlyBoxplot from './components/charts/plotly/PlotlyBoxplot';
+
+// 條件性導入圖表範例組件
+let ChartExamples = null;
+try {
+  ChartExamples = require('./components/charts/SimpleChartTest').default;
+} catch (error) {
+  console.log('ChartExamples 組件未找到，將跳過載入');
+}
 
 // 註冊 Chart.js 組件
 ChartJS.register(
@@ -121,7 +135,7 @@ function App() {
   const [error, setError] = useState('');
   
   // 新增狀態
-  const [mainTab, setMainTab] = useState(0); // 0: 圖表, 1: 資料表
+  const [mainTab, setMainTab] = useState(0); // 0: 圖表, 1: 資料表, 2: 範例
   const [selectedColumns, setSelectedColumns] = useState([]);
   const [customDialogOpen, setCustomDialogOpen] = useState(false);
   const [currentChartType, setCurrentChartType] = useState('');
@@ -404,6 +418,9 @@ function App() {
           return <PolarArea data={config.data} options={config.options} />;
         case 'bubble':
           return <Bubble data={config.data} options={config.options} />;
+        case 'boxplot':
+        case 'box':
+          return <PlotlyBoxplot data={config.data} options={config.options} />;
         default:
           return <Bar data={config.data} options={config.options} />;
       }
@@ -581,7 +598,7 @@ function App() {
           </Paper>
         </Grid>
 
-        {/* 自然語言輸入區域 - 修正佈局 */}
+        {/* 自然語言輸入區域 */}
         <Grid item xs={12}>
           <Paper elevation={3} sx={{ p: 3 }}>
             <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -598,7 +615,7 @@ function App() {
               sx={{ mb: 3 }}
             />
             
-            {/* AI 推薦按鈕組 - 修正為水平佈局 */}
+            {/* AI 推薦按鈕組 */}
             <Box>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <AIIcon /> AI 智能推薦
@@ -672,7 +689,7 @@ function App() {
           </Grid>
         )}
 
-        {/* 推薦結果展示 - 修正佈局 */}
+        {/* 推薦結果展示 */}
         {recommendation && (
           <Grid item xs={12}>
             <Paper elevation={3} sx={{ p: 3 }}>
@@ -807,6 +824,13 @@ function App() {
                   label="資料檢視" 
                   iconPosition="start"
                 />
+                {ChartExamples && (
+                  <Tab 
+                    icon={<SettingsIcon />} 
+                    label="圖表範例" 
+                    iconPosition="start"
+                  />
+                )}
               </Tabs>
 
               {/* 圖表工作區 */}
@@ -905,6 +929,13 @@ function App() {
                     onColumnSelect={handleColumnSelect}
                     selectedColumns={selectedColumns}
                   />
+                </Box>
+              )}
+
+              {/* 圖表範例 */}
+              {mainTab === 2 && ChartExamples && (
+                <Box sx={{ p: 3 }}>
+                  <ChartExamples />
                 </Box>
               )}
             </Paper>
