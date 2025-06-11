@@ -920,6 +920,408 @@ class ChartService {
     };
   }
 
+  // 1. 堆疊長條圖
+  generateStackedBarChart(data, options) {
+    const { xColumn, groupByColumn, valueColumn } = options;
+    
+    // 按分組欄位組織資料
+    const groupedData = {};
+    const categories = [...new Set(data.map(item => item[xColumn]))];
+    const series = [...new Set(data.map(item => item[groupByColumn]))];
+    
+    // 初始化資料結構
+    series.forEach(seriesName => {
+      groupedData[seriesName] = categories.map(category => {
+        const item = data.find(d => d[xColumn] === category && d[groupByColumn] === seriesName);
+        return parseFloat(item?.[valueColumn]) || 0;
+      });
+    });
+  
+    const datasets = series.map((seriesName, index) => ({
+      label: seriesName,
+      data: groupedData[seriesName],
+      backgroundColor: this.colorPalettes.primary[index % this.colorPalettes.primary.length],
+      borderColor: this.colorPalettes.border[index % this.colorPalettes.border.length],
+      borderWidth: 1
+    }));
+  
+    return {
+      type: 'bar',
+      data: {
+        labels: categories,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `${xColumn} 堆疊分析 (按 ${groupByColumn} 分組)`,
+            font: { size: 16 }
+          },
+          legend: {
+            position: 'top'
+          }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            title: {
+              display: true,
+              text: xColumn
+            }
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: valueColumn
+            }
+          }
+        }
+      }
+    };
+  }
+  
+  // 2. 分組長條圖
+  generateGroupedBarChart(data, options) {
+    const { xColumn, groupByColumn, valueColumn } = options;
+    
+    // 組織資料（與堆疊圖類似，但不堆疊）
+    const groupedData = {};
+    const categories = [...new Set(data.map(item => item[xColumn]))];
+    const series = [...new Set(data.map(item => item[groupByColumn]))];
+    
+    series.forEach(seriesName => {
+      groupedData[seriesName] = categories.map(category => {
+        const item = data.find(d => d[xColumn] === category && d[groupByColumn] === seriesName);
+        return parseFloat(item?.[valueColumn]) || 0;
+      });
+    });
+  
+    const datasets = series.map((seriesName, index) => ({
+      label: seriesName,
+      data: groupedData[seriesName],
+      backgroundColor: this.colorPalettes.primary[index % this.colorPalettes.primary.length],
+      borderColor: this.colorPalettes.border[index % this.colorPalettes.border.length],
+      borderWidth: 1
+    }));
+  
+    return {
+      type: 'bar',
+      data: {
+        labels: categories,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `${xColumn} 分組比較 (按 ${groupByColumn} 分組)`,
+            font: { size: 16 }
+          },
+          legend: {
+            position: 'top'
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: xColumn
+            }
+          },
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: valueColumn
+            }
+          }
+        }
+      }
+    };
+  }
+  
+  // 3. 混合圖表 (線 + 柱)
+  generateMixedChart(data, options) {
+    const { xColumn, barColumn, lineColumn } = options;
+    
+    return {
+      type: 'bar',
+      data: {
+        labels: data.map(item => item[xColumn]),
+        datasets: [
+          {
+            type: 'bar',
+            label: barColumn,
+            data: data.map(item => parseFloat(item[barColumn]) || 0),
+            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1,
+            yAxisID: 'y'
+          },
+          {
+            type: 'line',
+            label: lineColumn,
+            data: data.map(item => parseFloat(item[lineColumn]) || 0),
+            borderColor: 'rgba(255, 99, 132, 1)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            borderWidth: 2,
+            fill: false,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `${barColumn} vs ${lineColumn} 混合分析`,
+            font: { size: 16 }
+          },
+          legend: {
+            position: 'top'
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: xColumn
+            }
+          },
+          y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            title: {
+              display: true,
+              text: barColumn
+            }
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            title: {
+              display: true,
+              text: lineColumn
+            },
+            grid: {
+              drawOnChartArea: false,
+            },
+          }
+        }
+      }
+    };
+  }
+  
+  // 4. 水平長條圖
+  generateHorizontalBarChart(data, options) {
+    const { xColumn, yColumn } = options;
+    
+    return {
+      type: 'bar',
+      data: {
+        labels: data.map(item => item[xColumn]),
+        datasets: [{
+          label: yColumn,
+          data: data.map(item => parseFloat(item[yColumn]) || 0),
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `${xColumn} 水平分析`,
+            font: { size: 16 }
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: yColumn
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: xColumn
+            }
+          }
+        }
+      }
+    };
+  }
+  
+  // 5. 堆疊面積圖
+  generateStackedAreaChart(data, options) {
+    const { xColumn, groupByColumn, valueColumn } = options;
+    
+    // 按時間序列組織資料
+    const timePoints = [...new Set(data.map(item => item[xColumn]))].sort();
+    const series = [...new Set(data.map(item => item[groupByColumn]))];
+    
+    const datasets = series.map((seriesName, index) => {
+      const seriesData = timePoints.map(timePoint => {
+        const item = data.find(d => d[xColumn] === timePoint && d[groupByColumn] === seriesName);
+        return parseFloat(item?.[valueColumn]) || 0;
+      });
+      
+      return {
+        label: seriesName,
+        data: seriesData,
+        borderColor: this.colorPalettes.border[index % this.colorPalettes.border.length],
+        backgroundColor: this.colorPalettes.primary[index % this.colorPalettes.primary.length],
+        fill: true,
+        tension: 0.3
+      };
+    });
+  
+    return {
+      type: 'line',
+      data: {
+        labels: timePoints,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `${xColumn} 堆疊面積圖 (按 ${groupByColumn} 分組)`,
+            font: { size: 16 }
+          },
+          legend: {
+            position: 'top'
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: xColumn
+            }
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: valueColumn
+            }
+          }
+        }
+      }
+    };
+  }
+  
+  // 6. 簡單面積圖
+  generateSimpleAreaChart(data, options) {
+    const { xColumn, yColumn } = options;
+    return {
+      type: 'line',
+      data: {
+        labels: data.map(item => item[xColumn]),
+        datasets: [{
+          label: yColumn,
+          data: data.map(item => parseFloat(item[yColumn]) || 0),
+          borderColor: 'rgba(255, 159, 64, 1)',
+          backgroundColor: 'rgba(255, 159, 64, 0.3)',
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `${xColumn} 面積圖`,
+            font: { size: 16 }
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: xColumn
+            }
+          },
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: yColumn
+            }
+          }
+        }
+      }
+    };
+  }
+  
+  // 7. 階梯線圖 generateStepLineChart
+  generateStepLineChart(data, options) {
+    const { xColumn, yColumn } = options;
+    return {
+      type: 'line',
+      data: {
+        labels: data.map(item => item[xColumn]),
+        datasets: [{
+          label: yColumn,
+          data: data.map(item => parseFloat(item[yColumn]) || 0),
+          borderColor: 'rgba(153, 102, 255, 1)',
+          backgroundColor: 'rgba(153, 102, 255, 0.2)',
+          fill: false,
+          stepped: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `${xColumn} 階梯線圖`,
+            font: { size: 16 }
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: xColumn
+            }
+          },
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: yColumn
+            }
+          }
+        }
+      }
+    };
+  }
+
   // === 輔助方法 ===
   
   groupData(data, groupColumn, valueColumn) {

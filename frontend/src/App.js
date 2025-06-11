@@ -77,6 +77,7 @@ import PlotlyChart from './components/charts/plotly/PlotlyChart';
 import RadarChart from './components/charts/basic/RadarChart';
 import { PolarAreaChart, BubbleChart } from './components/charts/basic/PolarBubbleCharts';
 import WaterfallChart from './components/charts/advanced/WaterfallChart';
+import GaugeChart from './components/charts/business/GaugeChart';
 
 // 條件性導入圖表範例組件
 let ChartExamples = null;
@@ -106,25 +107,32 @@ const API_BASE_URL = 'http://localhost:3001';
 // 圖表類型配置
 const CHART_TYPES = {
   // 基礎圖表
-  bar: { name: '長條圖', category: 'basic', color: '#1976d2', icon: '📊' },
+    bar: { name: '長條圖', category: 'basic', color: '#1976d2', icon: '📊' },
   line: { name: '線圖', category: 'basic', color: '#388e3c', icon: '📈' },
   scatter: { name: '散佈圖', category: 'basic', color: '#f57c00', icon: '⚫' },
   pie: { name: '圓餅圖', category: 'basic', color: '#7b1fa2', icon: '🥧' },
-  
-  // 新增圖表
   doughnut: { name: '甜甜圈圖', category: 'basic', color: '#c2185b', icon: '🍩' },
   area: { name: '面積圖', category: 'basic', color: '#00796b', icon: '🏔️' },
   radar: { name: '雷達圖', category: 'advanced', color: '#5d4037', icon: '🕸️' },
   polarArea: { name: '極坐標圖', category: 'advanced', color: '#455a64', icon: '🎯' },
   bubble: { name: '氣泡圖', category: 'advanced', color: '#e64a19', icon: '🫧' },
   
-  // 統計圖表
+  // 新增的 Chart.js 圖表
+  stackedbar: { name: '堆疊長條圖', category: 'advanced', color: '#3f51b5', icon: '📊' },
+  groupedbar: { name: '分組長條圖', category: 'advanced', color: '#009688', icon: '📊' },
+  mixedchart: { name: '混合圖表', category: 'advanced', color: '#ff5722', icon: '📈' },
+  horizontalbar: { name: '水平長條圖', category: 'basic', color: '#795548', icon: '📊' },
+  stackedarea: { name: '堆疊面積圖', category: 'advanced', color: '#607d8b', icon: '🏔️' },
+  gauge: { name: '儀表板圖', category: 'business', color: '#9c27b0', icon: '⏲️' },
+  stepline: { name: '階梯線圖', category: 'advanced', color: '#ff9800', icon: '📈' },
+  
+  // 原有統計圖表
   histogram: { name: '直方圖', category: 'statistical', color: '#3f51b5', icon: '📊' },
   boxplot: { name: '箱型圖', category: 'statistical', color: '#009688', icon: '📦' },
   violin: { name: '小提琴圖', category: 'statistical', color: '#795548', icon: '🎻' },
-  
-  // 進階圖表
   heatmap: { name: '熱力圖', category: 'advanced', color: '#ff5722', icon: '🔥' },
+  
+  // 原有進階圖表
   waterfall: { name: '瀑布圖', category: 'business', color: '#607d8b', icon: '💧' },
   funnel: { name: '漏斗圖', category: 'business', color: '#9c27b0', icon: '🏺' }
 };
@@ -423,21 +431,42 @@ function App() {
           />
         );
       }
+
+      // 檢查是否為特殊處理的圖表（儀表板圖）
+      if (type.toLowerCase() === 'gauge') {
+        return (
+          <GaugeChart 
+            data={config.data} 
+            options={config.options} 
+          />
+        );
+      }
       
       // Chart.js 圖表
       switch (type.toLowerCase()) {
         case 'bar':
+        case 'stackedbar':
+        case 'groupedbar':
+        case 'horizontalbar':
           return <Bar data={config.data} options={config.options} />;
+        
         case 'line':
+        case 'stepline':
           return <Line data={config.data} options={config.options} />;
+        
+        case 'area':
+        case 'stackedarea':
+          return <Line data={config.data} options={config.options} />;
+        
+        case 'mixedchart':
+          return <Bar data={config.data} options={config.options} />;
+        
         case 'scatter':
           return <Scatter data={config.data} options={config.options} />;
         case 'pie':
           return <Pie data={config.data} options={config.options} />;
         case 'doughnut':
           return <Doughnut data={config.data} options={config.options} />;
-        case 'area':
-          return <Line data={config.data} options={{...config.options, fill: true}} />;
         case 'radar':
           return <RadarChart data={config.data} options={config.options} />;
         case 'polararea':
