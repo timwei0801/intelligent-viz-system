@@ -36,3 +36,21 @@
     transform: rotate(360deg);
   }
 }
+
+/* 修復圖表容器樣式 */
+.chart-container {
+  position: relative !important;
+  width: 100% !important;
+  height: 400px !important;
+}
+
+.chart-container canvas {
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+/* 修復 Material-UI 與 Chart.js 的衝突 */
+.MuiPaper-root canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
