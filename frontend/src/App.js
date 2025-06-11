@@ -64,7 +64,7 @@ import axios from 'axios';
 // 引入 CSS 樣式
 import './App.css';
 
-// 導入現有的組件（確保這些組件存在）
+// 導入現有的組件
 import { 
   DataPreviewTable, 
   ChartCustomizationDialog, 
@@ -72,7 +72,11 @@ import {
   DataQualityChecker 
 } from './DataManipulationComponents';
 
-import PlotlyBoxplot from './components/charts/plotly/PlotlyBoxplot';
+// 導入新的圖表組件
+import PlotlyChart from './components/charts/plotly/PlotlyChart';
+import RadarChart from './components/charts/basic/RadarChart';
+import { PolarAreaChart, BubbleChart } from './components/charts/basic/PolarBubbleCharts';
+import WaterfallChart from './components/charts/advanced/WaterfallChart';
 
 // 條件性導入圖表範例組件
 let ChartExamples = null;
@@ -394,11 +398,33 @@ function App() {
     setFilteredData(limited);
   };
 
-  // 渲染圖表組件
+  // 修正後的渲染圖表組件
   const renderChart = (chart) => {
     const { type, config } = chart;
     
     try {
+      // 檢查是否為 D3.js 瀑布圖
+      if (type.toLowerCase() === 'waterfall') {
+        return (
+          <WaterfallChart 
+            data={config.data} 
+            options={config.options} 
+          />
+        );
+      }
+      
+      // 檢查是否為 Plotly 圖表
+      if (config.type === 'plotly') {
+        return (
+          <PlotlyChart 
+            data={config.data} 
+            layout={config.layout} 
+            options={config.options} 
+          />
+        );
+      }
+      
+      // Chart.js 圖表
       switch (type.toLowerCase()) {
         case 'bar':
           return <Bar data={config.data} options={config.options} />;
@@ -413,22 +439,57 @@ function App() {
         case 'area':
           return <Line data={config.data} options={{...config.options, fill: true}} />;
         case 'radar':
-          return <Radar data={config.data} options={config.options} />;
+          return <RadarChart data={config.data} options={config.options} />;
         case 'polararea':
-          return <PolarArea data={config.data} options={config.options} />;
+          return <PolarAreaChart data={config.data} options={config.options} />;
         case 'bubble':
-          return <Bubble data={config.data} options={config.options} />;
+          return <BubbleChart data={config.data} options={config.options} />;
+        
+        // 統計圖表使用 Plotly
         case 'boxplot':
         case 'box':
-          return <PlotlyBoxplot data={config.data} options={config.options} />;
+        case 'violin':
+        case 'histogram':
+        case 'heatmap':
+          return (
+            <PlotlyChart 
+              data={config.data} 
+              layout={config.layout} 
+              options={config.options} 
+            />
+          );
+        
         default:
           return <Bar data={config.data} options={config.options} />;
       }
     } catch (error) {
       console.error('圖表渲染錯誤:', error);
       return (
-        <Box sx={{ p: 3, textAlign: 'center' }}>
-          <Typography color="error">圖表渲染失敗</Typography>
+        <Box sx={{ 
+          p: 3, 
+          textAlign: 'center',
+          border: '2px dashed #f44336',
+          borderRadius: 2,
+          backgroundColor: '#ffebee'
+        }}>
+          <Typography color="error" variant="h6" gutterBottom>
+            ⚠️ 圖表渲染失敗
+          </Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            圖表類型: {type}
+          </Typography>
+          <Typography variant="caption" color="error" sx={{ fontSize: '0.75rem' }}>
+            {error.message}
+          </Typography>
+          <Box sx={{ mt: 2 }}>
+            <Button 
+              size="small" 
+              variant="outlined" 
+              onClick={() => window.location.reload()}
+            >
+              重新載入頁面
+            </Button>
+          </Box>
         </Box>
       );
     }

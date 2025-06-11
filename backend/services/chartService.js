@@ -14,13 +14,13 @@ class ChartService {
       'polarArea': '極坐標圖',
       'bubble': '氣泡圖',
       
-      // 統計圖表
+      // 統計圖表 (使用 Plotly)
       'histogram': '直方圖',
       'boxplot': '箱型圖',
       'violin': '小提琴圖',
+      'heatmap': '熱力圖',
       
       // 進階圖表
-      'heatmap': '熱力圖',
       'waterfall': '瀑布圖',
       'funnel': '漏斗圖'
     };
@@ -80,6 +80,8 @@ class ChartService {
           return this.generateHistogram(data, options);
         case 'boxplot':
           return this.generateBoxPlot(data, options);
+        case 'violin':
+          return this.generateViolinPlot(data, options);
         case 'heatmap':
           return this.generateHeatmap(data, options);
         case 'waterfall':
@@ -95,180 +97,97 @@ class ChartService {
     }
   }
 
-  // === 新增的圖表類型 ===
-
-  // 甜甜圈圖
-  generateDoughnutChart(data, options) {
-    const { labelColumn, valueColumn } = options;
-    const groupedData = this.groupData(data, labelColumn, valueColumn);
-    
-    return {
-      type: 'doughnut',
-      data: {
-        labels: Object.keys(groupedData),
-        datasets: [{
-          data: Object.values(groupedData),
-          backgroundColor: this.colorPalettes.primary,
-          borderColor: this.colorPalettes.border,
-          borderWidth: 2,
-          hoverOffset: 4
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: `${labelColumn} 分布 (甜甜圈圖)`,
-            font: { size: 16 }
-          },
-          legend: {
-            position: 'bottom'
-          }
-        },
-        cutout: '60%' // 內部挖空比例
-      }
-    };
-  }
-
-  // 面積圖
-  generateAreaChart(data, options) {
-    const { xColumn, yColumn, groupBy } = options;
-    
-    return {
-      type: 'line',
-      data: {
-        labels: data.map(item => item[xColumn]),
-        datasets: [{
-          label: yColumn || '數值',
-          data: data.map(item => parseFloat(item[yColumn]) || 0),
-          borderColor: 'rgba(75, 192, 192, 1)',
-          backgroundColor: 'rgba(75, 192, 192, 0.3)',
-          fill: true,
-          tension: 0.4
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: `${xColumn} vs ${yColumn} 面積圖`,
-            font: { size: 16 }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            grid: {
-              color: 'rgba(0,0,0,0.1)'
-            }
-          },
-          x: {
-            grid: {
-              color: 'rgba(0,0,0,0.1)'
-            }
-          }
-        }
-      }
-    };
-  }
-
-  // 雷達圖
-  generateRadarChart(data, options) {
-    const numericColumns = Object.keys(data[0]).filter(col => 
-      !isNaN(parseFloat(data[0][col]))
-    ).slice(0, 6); // 限制最多6個維度
-    
-    // 取前3筆資料做比較
-    const datasets = data.slice(0, 3).map((item, index) => ({
-      label: `項目 ${index + 1}`,
-      data: numericColumns.map(col => parseFloat(item[col]) || 0),
-      borderColor: this.colorPalettes.border[index],
-      backgroundColor: this.colorPalettes.primary[index],
-      pointBackgroundColor: this.colorPalettes.border[index],
-      pointBorderColor: '#fff',
-      pointHoverBackgroundColor: '#fff',
-      pointHoverBorderColor: this.colorPalettes.border[index]
-    }));
-
-    return {
-      type: 'radar',
-      data: {
-        labels: numericColumns,
-        datasets: datasets
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: '多維度比較雷達圖',
-            font: { size: 16 }
-          }
-        },
-        scales: {
-          r: {
-            beginAtZero: true,
-            grid: {
-              color: 'rgba(0,0,0,0.1)'
-            }
-          }
-        }
-      }
-    };
-  }
-
-  // 極坐標圖
-  generatePolarAreaChart(data, options) {
-    const { labelColumn, valueColumn } = options;
-    const groupedData = this.groupData(data, labelColumn, valueColumn);
-    
-    return {
-      type: 'polarArea',
-      data: {
-        labels: Object.keys(groupedData),
-        datasets: [{
-          data: Object.values(groupedData),
-          backgroundColor: this.colorPalettes.primary,
-          borderColor: this.colorPalettes.border,
-          borderWidth: 2
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: `${labelColumn} 極坐標分布圖`,
-            font: { size: 16 }
-          },
-          legend: {
-            position: 'bottom'
-          }
-        },
-        scales: {
-          r: {
-            beginAtZero: true
-          }
-        }
-      }
-    };
-  }
-
-  // 氣泡圖
+  // 修正後的氣泡圖處理器
   generateBubbleChart(data, options) {
     const { xColumn, yColumn, sizeColumn } = options;
     
-    const bubbleData = data.map((item, index) => ({
-      x: parseFloat(item[xColumn]) || 0,
-      y: parseFloat(item[yColumn]) || 0,
-      r: Math.sqrt((parseFloat(item[sizeColumn]) || 1) / Math.PI) * 5 // 調整氣泡大小
-    }));
+    // 確保有三個數值型欄位
+    const numericColumns = Object.keys(data[0]).filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    
+    if (numericColumns.length < 3) {
+      // 如果數值欄位不足，使用預設值
+      const fallbackX = xColumn || numericColumns[0] || Object.keys(data[0])[0];
+      const fallbackY = yColumn || numericColumns[1] || Object.keys(data[0])[1];
+      const fallbackSize = sizeColumn || numericColumns[0] || Object.keys(data[0])[0];
+      
+      const bubbleData = data.map((item, index) => {
+        const xVal = parseFloat(item[fallbackX]) || index;
+        const yVal = parseFloat(item[fallbackY]) || Math.random() * 100;
+        const sizeVal = parseFloat(item[fallbackSize]) || 20;
+        
+        return {
+          x: xVal,
+          y: yVal,
+          r: Math.max(5, Math.min(50, sizeVal / Math.max(...data.map(d => parseFloat(d[fallbackSize]) || 1)) * 30))
+        };
+      });
+
+      return {
+        type: 'bubble',
+        data: {
+          datasets: [{
+            label: '資料點',
+            data: bubbleData,
+            backgroundColor: 'rgba(255, 99, 132, 0.6)',
+            borderColor: 'rgba(255, 99, 132, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: `${fallbackX} vs ${fallbackY} 氣泡圖 (大小: ${fallbackSize})`,
+              font: { size: 16 }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const point = context.parsed;
+                  return `(${point.x}, ${point.y}) 大小: ${point._custom}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: fallbackX
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: fallbackY
+              }
+            }
+          }
+        }
+      };
+    }
+
+    const bubbleData = data.map((item, index) => {
+      const xVal = parseFloat(item[xColumn]) || 0;
+      const yVal = parseFloat(item[yColumn]) || 0;
+      const sizeVal = parseFloat(item[sizeColumn]) || 1;
+      
+      // 計算相對大小
+      const maxSize = Math.max(...data.map(d => parseFloat(d[sizeColumn]) || 1));
+      const minSize = Math.min(...data.map(d => parseFloat(d[sizeColumn]) || 1));
+      const normalizedSize = maxSize === minSize ? 15 : 
+        5 + ((sizeVal - minSize) / (maxSize - minSize)) * 30;
+      
+      return {
+        x: xVal,
+        y: yVal,
+        r: normalizedSize
+      };
+    });
 
     return {
       type: 'bubble',
@@ -309,46 +228,72 @@ class ChartService {
     };
   }
 
-  // 直方圖
-  generateHistogram(data, options) {
-    const { column, bins = 10 } = options;
-    const values = data.map(item => parseFloat(item[column])).filter(val => !isNaN(val));
+  // 修正後的雷達圖處理器
+  generateRadarChart(data, options) {
+    const numericColumns = Object.keys(data[0]).filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
     
-    if (values.length === 0) {
-      throw new Error('沒有有效的數值資料');
+    if (numericColumns.length < 3) {
+      return {
+        type: 'radar',
+        data: {
+          labels: ['維度1', '維度2', '維度3'],
+          datasets: [{
+            label: '資料不足',
+            data: [50, 50, 50],
+            borderColor: 'rgba(255, 99, 132, 1)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: '雷達圖 (需要更多數值欄位)',
+              font: { size: 16 }
+            }
+          }
+        }
+      };
     }
-
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const binWidth = (max - min) / bins;
     
-    // 創建區間
-    const binRanges = [];
-    const binCounts = new Array(bins).fill(0);
+    // 限制維度數量到合理範圍
+    const dimensions = numericColumns.slice(0, Math.min(8, numericColumns.length));
     
-    for (let i = 0; i < bins; i++) {
-      const start = min + i * binWidth;
-      const end = start + binWidth;
-      binRanges.push(`${start.toFixed(1)}-${end.toFixed(1)}`);
-    }
-    
-    // 計算每個區間的數量
-    values.forEach(value => {
-      const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1);
-      binCounts[binIndex]++;
+    // 取前5筆資料做比較，或者如果資料不足就全部使用
+    const sampleSize = Math.min(5, data.length);
+    const datasets = data.slice(0, sampleSize).map((item, index) => {
+      const values = dimensions.map(col => {
+        const val = parseFloat(item[col]) || 0;
+        // 正規化數值到 0-100 範圍
+        const allValues = data.map(d => parseFloat(d[col]) || 0);
+        const max = Math.max(...allValues);
+        const min = Math.min(...allValues);
+        return max === min ? 50 : ((val - min) / (max - min)) * 100;
+      });
+      
+      return {
+        label: `項目 ${index + 1}`,
+        data: values,
+        borderColor: this.colorPalettes.border[index % this.colorPalettes.border.length],
+        backgroundColor: this.colorPalettes.primary[index % this.colorPalettes.primary.length],
+        pointBackgroundColor: this.colorPalettes.border[index % this.colorPalettes.border.length],
+        pointBorderColor: '#fff',
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: this.colorPalettes.border[index % this.colorPalettes.border.length],
+        borderWidth: 2,
+        pointRadius: 3
+      };
     });
 
     return {
-      type: 'bar',
+      type: 'radar',
       data: {
-        labels: binRanges,
-        datasets: [{
-          label: '頻率',
-          data: binCounts,
-          backgroundColor: 'rgba(54, 162, 235, 0.6)',
-          borderColor: 'rgba(54, 162, 235, 1)',
-          borderWidth: 1
-        }]
+        labels: dimensions,
+        datasets: datasets
       },
       options: {
         responsive: true,
@@ -356,86 +301,27 @@ class ChartService {
         plugins: {
           title: {
             display: true,
-            text: `${column} 分布直方圖`,
+            text: '多維度比較雷達圖',
             font: { size: 16 }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            title: {
-              display: true,
-              text: '頻率'
-            }
           },
-          x: {
-            title: {
-              display: true,
-              text: column
-            }
-          }
-        }
-      }
-    };
-  }
-
-  // 箱型圖 (使用 Chart.js 模擬)
-  generateBoxPlot(data, options) {
-    const { column } = options;
-    const values = data.map(item => parseFloat(item[column])).filter(val => !isNaN(val)).sort((a, b) => a - b);
-    
-    if (values.length === 0) {
-      throw new Error('沒有有效的數值資料');
-    }
-
-    // 計算四分位數
-    const q1 = this.percentile(values, 25);
-    const median = this.percentile(values, 50);
-    const q3 = this.percentile(values, 75);
-    const min = values[0];
-    const max = values[values.length - 1];
-    const iqr = q3 - q1;
-
-    return {
-      type: 'bar',
-      data: {
-        labels: ['最小值', 'Q1', '中位數', 'Q3', '最大值'],
-        datasets: [{
-          label: column,
-          data: [min, q1, median, q3, max],
-          backgroundColor: [
-            'rgba(255, 99, 132, 0.6)',
-            'rgba(54, 162, 235, 0.6)',
-            'rgba(255, 205, 86, 0.6)',
-            'rgba(75, 192, 192, 0.6)',
-            'rgba(153, 102, 255, 0.6)'
-          ],
-          borderColor: [
-            'rgba(255, 99, 132, 1)',
-            'rgba(54, 162, 235, 1)',
-            'rgba(255, 205, 86, 1)',
-            'rgba(75, 192, 192, 1)',
-            'rgba(153, 102, 255, 1)'
-          ],
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: `${column} 箱型圖統計`,
-            font: { size: 16 }
+          legend: {
+            position: 'top'
           }
         },
         scales: {
-          y: {
-            beginAtZero: false,
-            title: {
-              display: true,
-              text: '數值'
+          r: {
+            beginAtZero: true,
+            max: 100,
+            grid: {
+              color: 'rgba(0,0,0,0.1)'
+            },
+            angleLines: {
+              color: 'rgba(0,0,0,0.1)'
+            },
+            pointLabels: {
+              font: {
+                size: 10
+              }
             }
           }
         }
@@ -443,183 +329,208 @@ class ChartService {
     };
   }
 
-  // 熱力圖 (使用 Chart.js 模擬 - 實際應該用 D3.js)
+  // 新增小提琴圖處理器 (Plotly格式)
+  generateViolinPlot(data, options) {
+    const { column } = options;
+    const numericColumns = Object.keys(data[0]).filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    
+    const targetColumn = column || numericColumns[0];
+    
+    if (!targetColumn) {
+      throw new Error('小提琴圖需要至少一個數值型欄位');
+    }
+    
+    const values = data.map(item => parseFloat(item[targetColumn])).filter(val => !isNaN(val));
+    
+    return {
+      type: 'plotly',
+      data: [{
+        y: values,
+        type: 'violin',
+        name: targetColumn,
+        box: {
+          visible: true
+        },
+        line: {
+          color: 'rgba(75, 192, 192, 1)'
+        },
+        fillcolor: 'rgba(75, 192, 192, 0.3)',
+        meanline: {
+          visible: true
+        }
+      }],
+      layout: {
+        title: `${targetColumn} 小提琴圖`,
+        yaxis: {
+          title: targetColumn,
+          zeroline: false
+        },
+        xaxis: {
+          title: '密度分布'
+        },
+        showlegend: false
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false
+      }
+    };
+  }
+
+  // 修正後的熱力圖處理器 (Plotly格式)
   generateHeatmap(data, options) {
     const numericColumns = Object.keys(data[0]).filter(col => 
       !isNaN(parseFloat(data[0][col]))
     );
     
+    if (numericColumns.length < 2) {
+      throw new Error('熱力圖需要至少兩個數值型欄位');
+    }
+    
     // 計算相關係數矩陣
     const correlationMatrix = this.calculateCorrelationMatrix(data, numericColumns);
     
-    // 將矩陣轉換為散佈圖資料
-    const heatmapData = [];
-    for (let i = 0; i < numericColumns.length; i++) {
-      for (let j = 0; j < numericColumns.length; j++) {
-        heatmapData.push({
-          x: i,
-          y: j,
-          v: correlationMatrix[i][j]
-        });
-      }
-    }
-
     return {
-      type: 'scatter',
-      data: {
-        datasets: [{
-          label: '相關係數',
-          data: heatmapData.map(point => ({
-            x: point.x,
-            y: point.y,
-            r: Math.abs(point.v) * 20 // 用點的大小表示相關性強度
-          })),
-          backgroundColor: heatmapData.map(point => 
-            point.v > 0 ? `rgba(255, 99, 132, ${Math.abs(point.v)})` : `rgba(54, 162, 235, ${Math.abs(point.v)})`
-          )
-        }]
+      type: 'plotly',
+      data: [{
+        z: correlationMatrix,
+        x: numericColumns,
+        y: numericColumns,
+        type: 'heatmap',
+        colorscale: [
+          [0, 'rgba(0,0,255,0.8)'],
+          [0.5, 'rgba(255,255,255,1)'],
+          [1, 'rgba(255,0,0,0.8)']
+        ],
+        zmin: -1,
+        zmax: 1,
+        hoverongaps: false,
+        showscale: true,
+        colorbar: {
+          title: '相關係數',
+          titleside: 'right'
+        }
+      }],
+      layout: {
+        title: '變數相關係數熱力圖',
+        xaxis: {
+          title: '變數',
+          side: 'bottom'
+        },
+        yaxis: {
+          title: '變數'
+        },
+        width: 500,
+        height: 500
       },
       options: {
         responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: '相關係數熱力圖',
-            font: { size: 16 }
-          }
-        },
-        scales: {
-          x: {
-            type: 'linear',
-            position: 'bottom',
-            min: -0.5,
-            max: numericColumns.length - 0.5,
-            ticks: {
-              stepSize: 1,
-              callback: function(value) {
-                return numericColumns[value] || '';
-              }
-            }
-          },
-          y: {
-            type: 'linear',
-            min: -0.5,
-            max: numericColumns.length - 0.5,
-            ticks: {
-              stepSize: 1,
-              callback: function(value) {
-                return numericColumns[value] || '';
-              }
-            }
-          }
-        }
+        maintainAspectRatio: false
       }
     };
   }
 
-  // 瀑布圖
-  generateWaterfallChart(data, options) {
-    const { labelColumn, valueColumn } = options;
+  // 修正後的箱型圖處理器 (Plotly格式)
+  generateBoxPlot(data, options) {
+    const { column } = options;
+    const numericColumns = Object.keys(data[0]).filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
     
-    let cumulative = 0;
-    const waterfallData = data.map((item, index) => {
-      const value = parseFloat(item[valueColumn]) || 0;
-      const start = cumulative;
-      cumulative += value;
+    if (numericColumns.length === 0) {
+      throw new Error('箱型圖需要至少一個數值型欄位');
+    }
+    
+    // 如果沒有指定欄位，使用所有數值欄位
+    const columnsToPlot = column ? [column] : numericColumns.slice(0, 5);
+    
+    const plotlyData = columnsToPlot.map((col, index) => {
+      const values = data.map(item => parseFloat(item[col])).filter(val => !isNaN(val));
       
       return {
-        label: item[labelColumn],
-        value: value,
-        cumulative: cumulative,
-        start: start
+        y: values,
+        type: 'box',
+        name: col,
+        boxpoints: 'outliers',
+        marker: {
+          color: this.colorPalettes.primary[index % this.colorPalettes.primary.length]
+        },
+        line: {
+          color: this.colorPalettes.border[index % this.colorPalettes.border.length]
+        }
       };
     });
-
+    
     return {
-      type: 'bar',
-      data: {
-        labels: waterfallData.map(item => item.label),
-        datasets: [
-          {
-            label: '正值',
-            data: waterfallData.map(item => item.value > 0 ? item.value : 0),
-            backgroundColor: 'rgba(75, 192, 192, 0.6)',
-            borderColor: 'rgba(75, 192, 192, 1)',
-            borderWidth: 1
-          },
-          {
-            label: '負值',
-            data: waterfallData.map(item => item.value < 0 ? Math.abs(item.value) : 0),
-            backgroundColor: 'rgba(255, 99, 132, 0.6)',
-            borderColor: 'rgba(255, 99, 132, 1)',
-            borderWidth: 1
-          }
-        ]
+      type: 'plotly',
+      data: plotlyData,
+      layout: {
+        title: column ? `${column} 箱型圖` : '多變數箱型圖',
+        yaxis: {
+          title: '數值',
+          zeroline: false
+        },
+        xaxis: {
+          title: '變數'
+        },
+        showlegend: columnsToPlot.length > 1
       },
       options: {
         responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: `${labelColumn} 瀑布圖`,
-            font: { size: 16 }
-          }
-        },
-        scales: {
-          x: {
-            stacked: true
-          },
-          y: {
-            stacked: true,
-            beginAtZero: true
-          }
-        }
+        maintainAspectRatio: false
       }
     };
   }
 
-  // 漏斗圖
-  generateFunnelChart(data, options) {
-    const { labelColumn, valueColumn } = options;
-    const sortedData = data
-      .map(item => ({ label: item[labelColumn], value: parseFloat(item[valueColumn]) || 0 }))
-      .sort((a, b) => b.value - a.value);
-
+  // 修正後的直方圖處理器 (Plotly格式)
+  generateHistogram(data, options) {
+    const { column, bins = 20 } = options;
+    const numericColumns = Object.keys(data[0]).filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    
+    const targetColumn = column || numericColumns[0];
+    
+    if (!targetColumn) {
+      throw new Error('直方圖需要至少一個數值型欄位');
+    }
+    
+    const values = data.map(item => parseFloat(item[targetColumn])).filter(val => !isNaN(val));
+    
     return {
-      type: 'bar',
-      data: {
-        labels: sortedData.map(item => item.label),
-        datasets: [{
-          label: '漏斗數據',
-          data: sortedData.map(item => item.value),
-          backgroundColor: this.colorPalettes.primary,
-          borderColor: this.colorPalettes.border,
-          borderWidth: 1
-        }]
-      },
-      options: {
-        indexAxis: 'y', // 水平柱狀圖
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: `${labelColumn} 漏斗圖`,
-            font: { size: 16 }
-          }
-        },
-        scales: {
-          x: {
-            beginAtZero: true
+      type: 'plotly',
+      data: [{
+        x: values,
+        type: 'histogram',
+        nbinsx: bins,
+        marker: {
+          color: 'rgba(54, 162, 235, 0.7)',
+          line: {
+            color: 'rgba(54, 162, 235, 1)',
+            width: 1
           }
         }
+      }],
+      layout: {
+        title: `${targetColumn} 分布直方圖`,
+        xaxis: {
+          title: targetColumn
+        },
+        yaxis: {
+          title: '頻率'
+        },
+        bargap: 0.05
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false
       }
     };
   }
 
-  // === 原有的圖表方法保持不變 ===
+  // === 保持原有的其他方法不變 ===
   generateBarChart(data, options) {
     const { xColumn, yColumn, groupBy } = options;
     
@@ -797,6 +708,218 @@ class ChartService {
     };
   }
 
+  generateDoughnutChart(data, options) {
+    const { labelColumn, valueColumn } = options;
+    const groupedData = this.groupData(data, labelColumn, valueColumn);
+    
+    return {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(groupedData),
+        datasets: [{
+          data: Object.values(groupedData),
+          backgroundColor: this.colorPalettes.primary,
+          borderColor: this.colorPalettes.border,
+          borderWidth: 2,
+          hoverOffset: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `${labelColumn} 分布 (甜甜圈圖)`,
+            font: { size: 16 }
+          },
+          legend: {
+            position: 'bottom'
+          }
+        },
+        cutout: '60%'
+      }
+    };
+  }
+
+  generateAreaChart(data, options) {
+    const { xColumn, yColumn, groupBy } = options;
+    
+    return {
+      type: 'line',
+      data: {
+        labels: data.map(item => item[xColumn]),
+        datasets: [{
+          label: yColumn || '數值',
+          data: data.map(item => parseFloat(item[yColumn]) || 0),
+          borderColor: 'rgba(75, 192, 192, 1)',
+          backgroundColor: 'rgba(75, 192, 192, 0.3)',
+          fill: true,
+          tension: 0.4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `${xColumn} vs ${yColumn} 面積圖`,
+            font: { size: 16 }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: 'rgba(0,0,0,0.1)'
+            }
+          },
+          x: {
+            grid: {
+              color: 'rgba(0,0,0,0.1)'
+            }
+          }
+        }
+      }
+    };
+  }
+
+  generatePolarAreaChart(data, options) {
+    const { labelColumn, valueColumn } = options;
+    const groupedData = this.groupData(data, labelColumn, valueColumn);
+    
+    return {
+      type: 'polarArea',
+      data: {
+        labels: Object.keys(groupedData),
+        datasets: [{
+          data: Object.values(groupedData),
+          backgroundColor: this.colorPalettes.primary,
+          borderColor: this.colorPalettes.border,
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `${labelColumn} 極坐標分布圖`,
+            font: { size: 16 }
+          },
+          legend: {
+            position: 'bottom'
+          }
+        },
+        scales: {
+          r: {
+            beginAtZero: true
+          }
+        }
+      }
+    };
+  }
+
+  generateWaterfallChart(data, options) {
+  const { labelColumn, valueColumn } = options;
+  
+  // 驗證資料
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    throw new Error('瀑布圖需要有效的資料陣列');
+  }
+
+  // 檢查必要的欄位
+  const hasLabelColumn = data.some(item => item.hasOwnProperty(labelColumn));
+  const hasValueColumn = data.some(item => item.hasOwnProperty(valueColumn));
+  
+  if (!hasLabelColumn) {
+    throw new Error(`找不到標籤欄位: ${labelColumn}`);
+  }
+  
+  if (!hasValueColumn) {
+    throw new Error(`找不到數值欄位: ${valueColumn}`);
+  }
+
+  // 過濾和清理資料
+  const cleanData = data
+    .filter(item => 
+      item[labelColumn] !== null && 
+      item[labelColumn] !== undefined && 
+      item[labelColumn] !== ''
+    )
+    .map(item => ({
+      [labelColumn]: String(item[labelColumn]).trim(),
+      [valueColumn]: parseFloat(item[valueColumn]) || 0
+    }))
+    .slice(0, 15); // 限制最多 15 個項目，避免圖表過於擁擠
+
+  if (cleanData.length === 0) {
+    throw new Error('處理後沒有有效的資料項目');
+  }
+
+  // 為 D3.js 瀑布圖組件準備資料
+  return {
+    type: 'waterfall', // 特殊標識符，讓前端知道使用 D3.js 組件
+    data: {
+      data: cleanData,
+      labelColumn: labelColumn,
+      valueColumn: valueColumn
+    },
+    options: {
+      title: `${labelColumn} 瀑布圖`,
+      width: 700,
+      height: 450,
+      responsive: true,
+      maintainAspectRatio: false,
+      // 傳遞額外配置給 D3.js 組件
+      showValues: true,
+      showCumulative: true,
+      showGrid: true,
+      animation: true
+    }
+  };
+}
+
+  generateFunnelChart(data, options) {
+    const { labelColumn, valueColumn } = options;
+    const sortedData = data
+      .map(item => ({ label: item[labelColumn], value: parseFloat(item[valueColumn]) || 0 }))
+      .sort((a, b) => b.value - a.value);
+
+    return {
+      type: 'bar',
+      data: {
+        labels: sortedData.map(item => item.label),
+        datasets: [{
+          label: '漏斗數據',
+          data: sortedData.map(item => item.value),
+          backgroundColor: this.colorPalettes.primary,
+          borderColor: this.colorPalettes.border,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `${labelColumn} 漏斗圖`,
+            font: { size: 16 }
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true
+          }
+        }
+      }
+    };
+  }
+
   // === 輔助方法 ===
   
   groupData(data, groupColumn, valueColumn) {
@@ -813,18 +936,6 @@ class ChartService {
     }, {});
   }
 
-  // 計算百分位數
-  percentile(arr, p) {
-    const index = (p / 100) * (arr.length - 1);
-    const lower = Math.floor(index);
-    const upper = Math.ceil(index);
-    const weight = index % 1;
-    
-    if (upper >= arr.length) return arr[lower];
-    return arr[lower] * (1 - weight) + arr[upper] * weight;
-  }
-
-  // 計算相關係數矩陣
   calculateCorrelationMatrix(data, columns) {
     const matrix = [];
     
@@ -844,7 +955,6 @@ class ChartService {
     return matrix;
   }
 
-  // 計算皮爾遜相關係數
   calculateCorrelation(x, y) {
     const n = x.length;
     const sumX = x.reduce((a, b) => a + b, 0);
@@ -859,7 +969,6 @@ class ChartService {
     return denominator === 0 ? 0 : numerator / denominator;
   }
 
-  // 智能推薦圖表參數
   recommendChartParameters(data, chartType, dataAnalysis) {
     const { columns, types } = dataAnalysis;
     const numericalColumns = columns.filter(col => types[col] === 'numerical');
@@ -904,9 +1013,10 @@ class ChartService {
 
       case 'histogram':
       case 'boxplot':
+      case 'violin':
         return {
           column: numericalColumns[0] || columns[0],
-          bins: 10
+          bins: 20
         };
 
       case 'waterfall':
