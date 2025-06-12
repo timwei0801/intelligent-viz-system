@@ -1,6 +1,7 @@
 node_modules/
 .env
-uploads/
+uploads/*
+!uploads/.gitkeep
 python-scripts/temp_data_*.json
 *.log
 .DS_Store

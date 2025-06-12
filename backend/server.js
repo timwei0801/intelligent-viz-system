@@ -3,12 +3,20 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs'); // 加入 fs 模組
 
 // 載入環境變數
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// 確保 uploads 目錄存在
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('✅ 已創建 uploads 目錄');
+}
 
 // 中間件設置
 app.use(cors({
@@ -32,17 +40,51 @@ app.use((req, res, next) => {
   next();
 });
 
-// 文件上傳設置
+// 修復後的文件上傳設置
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/')
+    // 使用絕對路徑確保目錄正確
+    const uploadPath = path.join(__dirname, 'uploads');
+    
+    // 再次確保目錄存在
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    
+    console.log('📁 檔案將保存到:', uploadPath);
+    cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + file.originalname)
+    const filename = Date.now() + '-' + file.originalname;
+    console.log('📄 檔案名稱:', filename);
+    cb(null, filename);
   }
 });
 
-const upload = multer({ storage: storage });
+// 加入更詳細的錯誤處理
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB 限制
+  },
+  fileFilter: function (req, file, cb) {
+    console.log('📋 檢查檔案類型:', file.mimetype);
+    
+    // 允許的檔案類型
+    const allowedTypes = [
+      'text/csv',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'application/json'
+    ];
+    
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`不支援的檔案類型: ${file.mimetype}`), false);
+    }
+  }
+});
 
 // 基本路由
 app.get('/', (req, res) => {
@@ -85,21 +127,47 @@ const dataService = require('./services/dataService');
 const chartService = require('./services/chartService');
 const modernVizMLService = require('./services/modernVizMLService');
 
-// 檔案上傳和資料分析路由
+// 修復後的檔案上傳和資料分析路由
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
+    console.log('🔍 === 檔案上傳處理開始 ===');
+    
     if (!req.file) {
+      console.log('❌ 沒有收到檔案');
       return res.status(400).json({ error: '請上傳檔案' });
+    }
+
+    console.log('📁 收到檔案:', req.file.originalname);
+    console.log('📂 檔案大小:', req.file.size, 'bytes');
+    console.log('📄 檔案類型:', req.file.mimetype);
+    console.log('💾 儲存路徑:', req.file.path);
+
+    // 檢查檔案是否真的存在
+    if (!fs.existsSync(req.file.path)) {
+      console.log('❌ 檔案儲存失敗，路徑不存在:', req.file.path);
+      return res.status(500).json({ error: '檔案儲存失敗' });
     }
 
     const filePath = req.file.path;
     const fileExtension = path.extname(req.file.originalname).slice(1);
     
+    console.log('🔄 開始解析檔案...');
+    console.log('📋 檔案副檔名:', fileExtension);
+    
     // 解析檔案
     const result = await dataService.parseFile(filePath, fileExtension);
     
+    console.log('✅ 檔案解析成功');
+    console.log('📊 資料行數:', result.rowCount);
+    console.log('📋 欄位數:', result.columnCount);
+    
     // 清理暫存檔案
-    dataService.cleanupFile(filePath);
+    try {
+      dataService.cleanupFile(filePath);
+      console.log('🗑️ 暫存檔案已清理');
+    } catch (cleanupError) {
+      console.log('⚠️ 清理暫存檔案時發生錯誤:', cleanupError.message);
+    }
     
     res.json({
       success: true,
@@ -107,15 +175,28 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       data: result
     });
 
+    console.log('🎉 === 檔案上傳處理完成 ===\n');
+
   } catch (error) {
-    console.error('檔案處理錯誤:', error);
+    console.error('💥 === 檔案處理錯誤 ===');
+    console.error('錯誤類型:', error.constructor.name);
+    console.error('錯誤訊息:', error.message);
+    console.error('錯誤堆疊:', error.stack);
+    console.error('========================\n');
     
-    // 清理暫存檔案
-    if (req.file) {
-      dataService.cleanupFile(req.file.path);
+    // 清理暫存檔案（如果存在）
+    if (req.file && req.file.path) {
+      try {
+        dataService.cleanupFile(req.file.path);
+      } catch (cleanupError) {
+        console.error('清理暫存檔案失敗:', cleanupError.message);
+      }
     }
     
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: error.message,
+      success: false 
+    });
   }
 });
 
@@ -124,7 +205,8 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    service: 'intelligent-viz-system'
+    service: 'intelligent-viz-system',
+    uploadsDir: fs.existsSync(uploadsDir) ? 'exists' : 'missing'
   });
 });
 
@@ -253,8 +335,24 @@ app.post('/api/hybrid-recommend', async (req, res) => {
   }
 });
 
+// 全域錯誤處理中間件
+app.use((err, req, res, next) => {
+  console.error('💥 全域錯誤處理:', err);
+  
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: '檔案大小超過限制 (50MB)' });
+    }
+    return res.status(400).json({ error: `檔案上傳錯誤: ${err.message}` });
+  }
+  
+  res.status(500).json({ error: '伺服器內部錯誤' });
+});
+
 // 啟動伺服器
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Intelligent Visualization System Backend`);
+  console.log(`📁 Uploads directory: ${uploadsDir}`);
+  console.log(`📋 Uploads directory exists: ${fs.existsSync(uploadsDir) ? 'YES' : 'NO'}`);
 });
