@@ -71,7 +71,199 @@ export const getDefaultChartOptions = (chartType) => {
         ...baseOptions,
         scales: {
           r: {
+            beginAtZero: true,
+            grid: {
+              color: 'rgba(0,0,0,0.1)'
+            },
+            angleLines: {
+              color: 'rgba(0,0,0,0.1)'
+            },
+            pointLabels: {
+              font: { size: 10 }
+            }
+          }
+        }
+      };
+    
+    case 'polararea':
+      return {
+        ...baseOptions,
+        scales: {
+          r: {
             beginAtZero: true
+          }
+        }
+      };
+
+    case 'bubble':
+      return {
+        ...baseOptions,
+        scales: {
+          x: {
+            type: 'linear',
+            position: 'bottom',
+            grid: { color: 'rgba(0,0,0,0.1)' }
+          },
+          y: {
+            type: 'linear',
+            grid: { color: 'rgba(0,0,0,0.1)' }
+          }
+        }
+      };
+
+    case 'scatter':
+      return {
+        ...baseOptions,
+        scales: {
+          x: {
+            type: 'linear',
+            position: 'bottom',
+            grid: { color: 'rgba(0,0,0,0.1)' }
+          },
+          y: {
+            type: 'linear',
+            grid: { color: 'rgba(0,0,0,0.1)' }
+          }
+        }
+      };
+
+    // === 新增的圖表類型選項 ===
+    case 'horizontalbar':
+      return {
+        ...baseOptions,
+        indexAxis: 'y',
+        scales: {
+          x: { 
+            beginAtZero: true,
+            grid: { color: 'rgba(0,0,0,0.1)' }
+          },
+          y: { 
+            type: 'category',
+            grid: { color: 'rgba(0,0,0,0.1)' }
+          }
+        }
+      };
+
+    case 'stackedbar':
+      return {
+        ...baseOptions,
+        scales: {
+          x: { 
+            stacked: true,
+            grid: { color: 'rgba(0,0,0,0.1)' }
+          },
+          y: { 
+            stacked: true, 
+            beginAtZero: true,
+            grid: { color: 'rgba(0,0,0,0.1)' }
+          }
+        }
+      };
+
+    case 'groupedbar':
+      return {
+        ...baseOptions,
+        scales: {
+          x: { grid: { color: 'rgba(0,0,0,0.1)' } },
+          y: { 
+            beginAtZero: true,
+            grid: { color: 'rgba(0,0,0,0.1)' }
+          }
+        }
+      };
+
+    case 'stackedarea':
+      return {
+        ...baseOptions,
+        scales: {
+          x: { 
+            stacked: true,
+            grid: { color: 'rgba(0,0,0,0.1)' }
+          },
+          y: { 
+            stacked: true, 
+            beginAtZero: true,
+            grid: { color: 'rgba(0,0,0,0.1)' }
+          }
+        },
+        elements: {
+          line: { 
+            fill: true,
+            tension: 0.4
+          }
+        }
+      };
+
+    case 'stepline':
+      return {
+        ...baseOptions,
+        scales: {
+          x: { grid: { color: 'rgba(0,0,0,0.1)' } },
+          y: { 
+            beginAtZero: true,
+            grid: { color: 'rgba(0,0,0,0.1)' }
+          }
+        },
+        elements: {
+          line: { 
+            stepped: true,
+            tension: 0
+          }
+        }
+      };
+
+    case 'mixedchart':
+      return {
+        ...baseOptions,
+        scales: {
+          x: { grid: { color: 'rgba(0,0,0,0.1)' } },
+          y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            beginAtZero: true,
+            grid: { color: 'rgba(0,0,0,0.1)' }
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            beginAtZero: true,
+            grid: {
+              drawOnChartArea: false,
+              color: 'rgba(0,0,0,0.1)'
+            }
+          }
+        }
+      };
+
+    case 'gauge':
+      return {
+        ...baseOptions,
+        cutout: '80%',
+        rotation: Math.PI,
+        circumference: Math.PI,
+        plugins: {
+          ...baseOptions.plugins,
+          legend: { display: false },
+          tooltip: { enabled: false }
+        }
+      };
+
+    case 'area':
+      return {
+        ...baseOptions,
+        scales: {
+          x: { grid: { color: 'rgba(0,0,0,0.1)' } },
+          y: { 
+            beginAtZero: true,
+            grid: { color: 'rgba(0,0,0,0.1)' }
+          }
+        },
+        elements: {
+          line: { 
+            fill: true,
+            tension: 0.4
           }
         }
       };

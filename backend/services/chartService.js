@@ -6,13 +6,18 @@ class ChartService {
       'line': '線圖',
       'scatter': '散佈圖',
       'pie': '圓餅圖',
-      
-      // 新增圖表
       'doughnut': '甜甜圈圖',
       'area': '面積圖',
       'radar': '雷達圖',
       'polarArea': '極坐標圖',
       'bubble': '氣泡圖',
+      
+      // 進階圖表
+      'stackedbar': '堆疊長條圖',
+      'groupedbar': '分組長條圖',
+      'horizontalbar': '水平長條圖',
+      'stackedarea': '堆疊面積圖',
+      'stepline': '階梯線圖',
       
       // 統計圖表 (使用 Plotly)
       'histogram': '直方圖',
@@ -20,9 +25,16 @@ class ChartService {
       'violin': '小提琴圖',
       'heatmap': '熱力圖',
       
-      // 進階圖表
-      'waterfall': '瀑布圖',
-      'funnel': '漏斗圖'
+      // 商業智慧圖表 - 完整套件
+      'gauge': '儀表板圖',
+      'bullet': '子彈圖',
+      'kpicard': 'KPI卡片',
+      'funnel': '漏斗圖',
+      'sankey': '桑基圖',
+      'treemap': '樹狀圖',
+      
+      // 其他圖表
+      'waterfall': '瀑布圖'
     };
 
     // 顏色調色盤
@@ -54,10 +66,12 @@ class ChartService {
     };
   }
 
+
   // 根據資料和圖表類型生成圖表配置
   generateChartConfig(data, chartType, options = {}) {
     try {
       switch (chartType.toLowerCase()) {
+        // 基礎圖表（保持原有邏輯）
         case 'bar':
           return this.generateBarChart(data, options);
         case 'line':
@@ -76,6 +90,20 @@ class ChartService {
           return this.generatePolarAreaChart(data, options);
         case 'bubble':
           return this.generateBubbleChart(data, options);
+        
+        // 進階圖表（保持原有邏輯）
+        case 'stackedbar':
+          return this.generateStackedBarChart(data, options);
+        case 'groupedbar':
+          return this.generateGroupedBarChart(data, options);
+        case 'horizontalbar':
+          return this.generateHorizontalBarChart(data, options);
+        case 'stackedarea':
+          return this.generateStackedAreaChart(data, options);
+        case 'stepline':
+          return this.generateStepLineChart(data, options);
+        
+        // 統計圖表（保持原有邏輯）
         case 'histogram':
           return this.generateHistogram(data, options);
         case 'boxplot':
@@ -84,10 +112,25 @@ class ChartService {
           return this.generateViolinPlot(data, options);
         case 'heatmap':
           return this.generateHeatmap(data, options);
-        case 'waterfall':
-          return this.generateWaterfallChart(data, options);
+        
+        // 新增：商業智慧圖表
+        case 'gauge':
+          return this.generateGaugeChart(data, options);
+        case 'bullet':
+          return this.generateBulletChart(data, options);
+        case 'kpicard':
+          return this.generateKPICard(data, options);
         case 'funnel':
           return this.generateFunnelChart(data, options);
+        case 'sankey':
+          return this.generateSankeyChart(data, options);
+        case 'treemap':
+          return this.generateTreemapChart(data, options);
+        
+        // 其他圖表
+        case 'waterfall':
+          return this.generateWaterfallChart(data, options);
+        
         default:
           return this.generateBarChart(data, options);
       }
@@ -96,6 +139,231 @@ class ChartService {
       throw new Error(`生成 ${chartType} 圖表配置失敗: ${error.message}`);
     }
   }
+
+  // === 新增：商業智慧圖表生成器 ===
+
+  // 1. 儀表板圖
+  generateGaugeChart(data, options) {
+    const { valueColumn } = options;
+    const numericColumns = Object.keys(data[0]).filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    
+    const targetColumn = valueColumn || numericColumns[0];
+    if (!targetColumn) {
+      throw new Error('儀表板圖需要至少一個數值欄位');
+    }
+    
+    const currentValue = data.length > 0 ? (parseFloat(data[0][targetColumn]) || 0) : 0;
+    const allValues = data.map(item => parseFloat(item[targetColumn]) || 0);
+    const maxValue = Math.max(...allValues);
+    const targetValue = options.target || maxValue * 1.2;
+    
+    return {
+      type: 'gauge',
+      data: {
+        currentValue,
+        targetValue,
+        valueColumn: targetColumn
+      },
+      options: {
+        title: options.title || `${targetColumn} 指標監控`,
+        valueColumn: targetColumn,
+        minValue: options.minValue || 0,
+        maxValue: targetValue,
+        thresholds: options.thresholds || [targetValue * 0.3, targetValue * 0.7],
+        unit: options.unit || ''
+      }
+    };
+  }
+
+  // 2. 子彈圖
+  generateBulletChart(data, options) {
+    const { labelColumn, valueColumn, targetColumn } = options;
+    const columns = Object.keys(data[0]);
+    const numericColumns = columns.filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    const categoricalColumns = columns.filter(col => 
+      isNaN(parseFloat(data[0][col]))
+    );
+    
+    const finalLabelColumn = labelColumn || categoricalColumns[0] || columns[0];
+    const finalValueColumn = valueColumn || numericColumns[0];
+    const finalTargetColumn = targetColumn || numericColumns[1] || finalValueColumn;
+    
+    if (!finalValueColumn) {
+      throw new Error('子彈圖需要至少一個數值欄位');
+    }
+    
+    return {
+      type: 'bullet',
+      data: { 
+        data: data,
+        labelColumn: finalLabelColumn,
+        valueColumn: finalValueColumn,
+        targetColumn: finalTargetColumn
+      },
+      options: {
+        title: options.title || `${finalLabelColumn} 目標達成分析`,
+        labelColumn: finalLabelColumn,
+        valueColumn: finalValueColumn,
+        targetColumn: finalTargetColumn,
+        showQualitativeRanges: options.showQualitativeRanges !== false,
+        colorScheme: options.colorScheme || 'default'
+      }
+    };
+  }
+
+  // 3. KPI卡片
+  generateKPICard(data, options) {
+    const { kpiColumn } = options;
+    const numericColumns = Object.keys(data[0]).filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    
+    const targetKPIColumn = kpiColumn || numericColumns[0];
+    if (!targetKPIColumn) {
+      throw new Error('KPI卡片需要至少一個數值欄位');
+    }
+    
+    const currentValue = data.length > 0 ? (parseFloat(data[0][targetKPIColumn]) || 0) : 0;
+    const previousValue = data.length > 1 ? (parseFloat(data[1][targetKPIColumn]) || 0) : currentValue * 0.9;
+    const changePercent = previousValue !== 0 ? ((currentValue - previousValue) / previousValue) * 100 : 0;
+    
+    return {
+      type: 'kpicard',
+      data: { 
+        data: data,
+        currentValue,
+        previousValue,
+        changePercent,
+        kpiColumn: targetKPIColumn
+      },
+      options: {
+        title: options.title || `${targetKPIColumn} KPI`,
+        kpiColumn: targetKPIColumn,
+        format: options.format || 'number',
+        showTrend: options.showTrend !== false,
+        comparisonPeriod: options.comparisonPeriod || '上期',
+        unit: options.unit || '',
+        precision: options.precision || 0
+      }
+    };
+  }
+
+  // 4. 漏斗圖
+  generateFunnelChart(data, options) {
+    const { labelColumn, valueColumn } = options;
+    const columns = Object.keys(data[0]);
+    const numericColumns = columns.filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    const categoricalColumns = columns.filter(col => 
+      isNaN(parseFloat(data[0][col]))
+    );
+    
+    const finalLabelColumn = labelColumn || categoricalColumns[0] || columns[0];
+    const finalValueColumn = valueColumn || numericColumns[0];
+    
+    if (!finalLabelColumn || !finalValueColumn) {
+      throw new Error('漏斗圖需要標籤欄位和數值欄位');
+    }
+    
+    // 聚合數據
+    const aggregated = data.reduce((acc, item) => {
+      const label = String(item[finalLabelColumn] || '未分類');
+      const value = parseFloat(item[finalValueColumn]) || 0;
+      acc[label] = (acc[label] || 0) + value;
+      return acc;
+    }, {});
+    
+    const processedData = Object.entries(aggregated).map(([label, value]) => ({
+      [finalLabelColumn]: label,
+      [finalValueColumn]: value
+    }));
+    
+    return {
+      type: 'funnel',
+      data: { data: processedData },
+      options: {
+        title: options.title || `${finalLabelColumn} 轉換漏斗`,
+        labelColumn: finalLabelColumn,
+        valueColumn: finalValueColumn,
+        showConversionRates: options.showConversionRates !== false,
+        sortOrder: options.sortOrder || 'desc'
+      }
+    };
+  }
+
+  // 5. 桑基圖
+  generateSankeyChart(data, options) {
+    const { sourceColumn, targetColumn, valueColumn } = options;
+    const columns = Object.keys(data[0]);
+    const numericColumns = columns.filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    const categoricalColumns = columns.filter(col => 
+      isNaN(parseFloat(data[0][col]))
+    );
+    
+    const finalSourceColumn = sourceColumn || categoricalColumns[0];
+    const finalTargetColumn = targetColumn || categoricalColumns[1];
+    const finalValueColumn = valueColumn || numericColumns[0];
+    
+    if (!finalSourceColumn || !finalTargetColumn || !finalValueColumn) {
+      throw new Error('桑基圖需要來源欄位、目標欄位和數值欄位');
+    }
+    
+    return {
+      type: 'sankey',
+      data: { data },
+      options: {
+        title: options.title || `${finalSourceColumn} → ${finalTargetColumn} 流向分析`,
+        sourceColumn: finalSourceColumn,
+        targetColumn: finalTargetColumn,
+        valueColumn: finalValueColumn,
+        nodeAlignment: options.nodeAlignment || 'justify',
+        linkOpacity: options.linkOpacity || 0.6
+      }
+    };
+  }
+
+  // 6. 樹狀圖
+  generateTreemapChart(data, options) {
+    const { labelColumn, valueColumn, parentColumn } = options;
+    const columns = Object.keys(data[0]);
+    const numericColumns = columns.filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    const categoricalColumns = columns.filter(col => 
+      isNaN(parseFloat(data[0][col]))
+    );
+    
+    const finalLabelColumn = labelColumn || categoricalColumns[0];
+    const finalValueColumn = valueColumn || numericColumns[0];
+    const finalParentColumn = parentColumn || categoricalColumns[1];
+    
+    if (!finalLabelColumn || !finalValueColumn) {
+      throw new Error('樹狀圖需要標籤欄位和數值欄位');
+    }
+    
+    return {
+      type: 'treemap',
+      data: { data },
+      options: {
+        title: options.title || `${finalLabelColumn} 組成分析`,
+        labelColumn: finalLabelColumn,
+        valueColumn: finalValueColumn,
+        parentColumn: finalParentColumn,
+        maxDepth: options.maxDepth || 3,
+        colorScale: options.colorScale || 'Viridis',
+        showLabels: options.showLabels !== false,
+        showValues: options.showValues !== false
+      }
+    };
+  }
+
 
   // 修正後的氣泡圖處理器
   generateBubbleChart(data, options) {
@@ -1377,6 +1645,58 @@ class ChartService {
     const categoricalColumns = columns.filter(col => types[col] === 'categorical');
     const temporalColumns = columns.filter(col => types[col] === 'temporal');
 
+    // 商業圖表的參數推薦
+    const businessChartConfigs = {
+      gauge: {
+        valueColumn: numericalColumns[0],
+        title: `${numericalColumns[0]} 指標監控`,
+        thresholds: [30, 70],
+        unit: '',
+        target: Math.max(...data.map(item => parseFloat(item[numericalColumns[0]]) || 0)) * 1.2
+      },
+
+      bullet: {
+        labelColumn: categoricalColumns[0] || columns[0],
+        valueColumn: numericalColumns[0],
+        targetColumn: numericalColumns[1] || numericalColumns[0],
+        title: `${categoricalColumns[0] || '項目'} 目標達成分析`
+      },
+
+      kpicard: {
+        kpiColumn: numericalColumns[0],
+        title: `${numericalColumns[0]} KPI`,
+        format: 'number',
+        showTrend: true,
+        unit: ''
+      },
+
+      funnel: {
+        labelColumn: categoricalColumns[0] || columns[0],
+        valueColumn: numericalColumns[0] || columns[1],
+        title: `${categoricalColumns[0] || '階段'} 轉換漏斗`,
+        showConversionRates: true
+      },
+
+      sankey: {
+        sourceColumn: categoricalColumns[0] || columns[0],
+        targetColumn: categoricalColumns[1] || columns[1],
+        valueColumn: numericalColumns[0] || columns[2],
+        title: `${categoricalColumns[0] || '來源'} → ${categoricalColumns[1] || '目標'} 流向分析`
+      },
+
+      treemap: {
+        labelColumn: categoricalColumns[0] || columns[0],
+        valueColumn: numericalColumns[0] || columns[1],
+        parentColumn: categoricalColumns[1] || null,
+        title: `${categoricalColumns[0] || '項目'} 組成分析`
+      }
+    };
+
+    // 如果是商業圖表，返回商業圖表配置
+    if (businessChartConfigs[chartType]) {
+      return businessChartConfigs[chartType];
+    }
+
     switch (chartType.toLowerCase()) {
       case 'bar':
         return {
@@ -1434,6 +1754,64 @@ class ChartService {
           yColumn: columns[1]
         };
     }
+  }
+  // === 商業圖表數據驗證 ===
+  validateBusinessChartData(data, chartType) {
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return { valid: false, reason: '數據為空或格式不正確' };
+    }
+
+    const firstRow = data[0];
+    const columns = Object.keys(firstRow);
+    const numericalColumns = columns.filter(col => 
+      !isNaN(parseFloat(firstRow[col]))
+    );
+    const categoricalColumns = columns.filter(col => 
+      isNaN(parseFloat(firstRow[col]))
+    );
+
+    switch (chartType.toLowerCase()) {
+      case 'gauge':
+        if (numericalColumns.length < 1) {
+          return { valid: false, reason: '儀表板圖需要至少一個數值欄位' };
+        }
+        break;
+
+      case 'bullet':
+        if (numericalColumns.length < 1) {
+          return { valid: false, reason: '子彈圖需要至少一個數值欄位' };
+        }
+        break;
+
+      case 'kpicard':
+        if (numericalColumns.length < 1) {
+          return { valid: false, reason: 'KPI卡片需要至少一個數值欄位' };
+        }
+        break;
+
+      case 'funnel':
+        if (numericalColumns.length < 1 || categoricalColumns.length < 1) {
+          return { valid: false, reason: '漏斗圖需要分類標籤和對應數值' };
+        }
+        break;
+
+      case 'sankey':
+        if (categoricalColumns.length < 2 || numericalColumns.length < 1) {
+          return { valid: false, reason: '桑基圖需要來源、目標欄位和流量數值' };
+        }
+        break;
+
+      case 'treemap':
+        if (numericalColumns.length < 1 || categoricalColumns.length < 1) {
+          return { valid: false, reason: '樹狀圖需要分類標籤和對應數值' };
+        }
+        break;
+
+      default:
+        return { valid: true };
+    }
+
+    return { valid: true };
   }
 }
 

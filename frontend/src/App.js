@@ -1,5 +1,5 @@
 // ==========================================
-// 完整功能的修復版 App.js - 保留所有原始功能
+// 完整功能的修復版 App.js - 集成所有商業圖表
 // ==========================================
 
 import React, { useState, useCallback, useMemo } from 'react';
@@ -68,7 +68,14 @@ import PlotlyChart from './components/charts/plotly/PlotlyChart';
 import RadarChart from './components/charts/basic/RadarChart';
 import { PolarAreaChart, BubbleChart } from './components/charts/basic/PolarBubbleCharts';
 import WaterfallChart from './components/charts/advanced/WaterfallChart';
+
+// 導入所有商業圖表組件
 import GaugeChart from './components/charts/business/GaugeChart';
+import FunnelChart from './components/charts/business/FunnelChart';
+import SankeyChart from './components/charts/business/SankeyChart';
+import TreemapChart from './components/charts/business/TreemapChart';
+import BulletChart from './components/charts/business/BulletChart';
+import KPICard from './components/charts/business/KPICard';
 
 // 條件性導入圖表範例組件
 let ChartExamples = null;
@@ -80,7 +87,7 @@ try {
 
 const API_BASE_URL = 'http://localhost:3001';
 
-// 完整的圖表類型配置 - 保留所有原始圖表類型
+// 完整的圖表類型配置 - 包含所有商業圖表
 const CHART_TYPES = {
   // 基礎圖表
   bar: { name: '長條圖', category: 'basic', color: '#1976d2', icon: '📊' },
@@ -93,13 +100,12 @@ const CHART_TYPES = {
   polarArea: { name: '極坐標圖', category: 'advanced', color: '#455a64', icon: '🎯' },
   bubble: { name: '氣泡圖', category: 'advanced', color: '#e64a19', icon: '🫧' },
   
-  // 新增的 Chart.js 圖表
+  // Chart.js 進階圖表
   stackedbar: { name: '堆疊長條圖', category: 'advanced', color: '#3f51b5', icon: '📊' },
   groupedbar: { name: '分組長條圖', category: 'advanced', color: '#009688', icon: '📊' },
   mixedchart: { name: '混合圖表', category: 'advanced', color: '#ff5722', icon: '📈' },
   horizontalbar: { name: '水平長條圖', category: 'basic', color: '#795548', icon: '📊' },
   stackedarea: { name: '堆疊面積圖', category: 'advanced', color: '#607d8b', icon: '🏔️' },
-  gauge: { name: '儀表板圖', category: 'business', color: '#9c27b0', icon: '⏲️' },
   stepline: { name: '階梯線圖', category: 'advanced', color: '#ff9800', icon: '📈' },
   
   // 統計圖表
@@ -108,9 +114,16 @@ const CHART_TYPES = {
   violin: { name: '小提琴圖', category: 'statistical', color: '#795548', icon: '🎻' },
   heatmap: { name: '熱力圖', category: 'advanced', color: '#ff5722', icon: '🔥' },
   
-  // 商業圖表
-  waterfall: { name: '瀑布圖', category: 'business', color: '#607d8b', icon: '💧' },
-  funnel: { name: '漏斗圖', category: 'business', color: '#9c27b0', icon: '🏺' }
+  // 商業智慧圖表 - 完整的商業圖表套件
+  gauge: { name: '儀表板圖', category: 'business', color: '#9c27b0', icon: '⏲️' },
+  bullet: { name: '子彈圖', category: 'business', color: '#673ab7', icon: '🎯' },
+  kpicard: { name: 'KPI卡片', category: 'business', color: '#3f51b5', icon: '📋' },
+  funnel: { name: '漏斗圖', category: 'business', color: '#ff5722', icon: '🏺' },
+  sankey: { name: '桑基圖', category: 'business', color: '#00bcd4', icon: '🌊' },
+  treemap: { name: '樹狀圖', category: 'business', color: '#4caf50', icon: '🌳' },
+  
+  // 其他圖表
+  waterfall: { name: '瀑布圖', category: 'business', color: '#607d8b', icon: '💧' }
 };
 
 // 圖表顏色配置
@@ -147,7 +160,7 @@ function App() {
   const [error, setError] = useState('');
   
   // 保留所有原始狀態
-  const [mainTab, setMainTab] = useState(0); // 0: 圖表, 1: 資料表, 2: 範例
+  const [mainTab, setMainTab] = useState(0);
   const [selectedColumns, setSelectedColumns] = useState([]);
   const [customDialogOpen, setCustomDialogOpen] = useState(false);
   const [currentChartType, setCurrentChartType] = useState('');
@@ -193,7 +206,7 @@ function App() {
       });
 
       setAnalysisResult(response.data.data);
-      setFilteredData(response.data.data.data); // 初始化篩選資料
+      setFilteredData(response.data.data.data);
     } catch (err) {
       setError(err.response?.data?.error || '檔案上傳失敗');
     } finally {
@@ -201,8 +214,7 @@ function App() {
     }
   };
 
-  // 保留所有原始 AI 推薦功能
-  // Claude 推薦
+  // AI 推薦功能（保持不變）
   const handleClaudeRecommendation = async () => {
     if (!userInput || !analysisResult) return;
 
@@ -226,7 +238,6 @@ function App() {
     }
   };
 
-  // VizML 推薦
   const handleVizMLRecommendation = async () => {
     if (!analysisResult) return;
 
@@ -249,7 +260,6 @@ function App() {
     }
   };
 
-  // 混合推薦
   const handleHybridRecommendation = async () => {
     if (!userInput || !analysisResult) return;
 
@@ -271,7 +281,7 @@ function App() {
     }
   };
 
-  // 修復後的圖表資料生成函數 - 保留完整功能
+  // 增強的圖表資料生成函數 - 包含所有商業圖表
   const generateChartData = useCallback((data, chartType) => {
     if (!data || !Array.isArray(data) || data.length === 0) {
       console.error('無效的資料:', data);
@@ -295,6 +305,7 @@ function App() {
 
     try {
       switch (chartType.toLowerCase()) {
+        // 基礎圖表（保持不變）
         case 'bar':
           return generateBarChartData(data, categoricalColumns, numericColumns);
         case 'line':
@@ -312,7 +323,8 @@ function App() {
           return generateBubbleChartData(data, numericColumns);
         case 'area':
           return generateAreaChartData(data, columns, numericColumns);
-        // 保留所有其他圖表類型
+        
+        // 進階圖表（保持不變）
         case 'stackedbar':
           return generateStackedBarData(data, categoricalColumns, numericColumns);
         case 'groupedbar':
@@ -321,6 +333,21 @@ function App() {
           return generateHorizontalBarData(data, categoricalColumns, numericColumns);
         case 'stackedarea':
           return generateStackedAreaData(data, columns, numericColumns);
+        
+        // 新增：商業智慧圖表
+        case 'gauge':
+          return generateGaugeChartData(data, numericColumns);
+        case 'bullet':
+          return generateBulletChartData(data, numericColumns, categoricalColumns);
+        case 'kpicard':
+          return generateKPICardData(data, numericColumns, categoricalColumns);
+        case 'funnel':
+          return generateFunnelChartData(data, categoricalColumns, numericColumns);
+        case 'sankey':
+          return generateSankeyChartData(data, categoricalColumns, numericColumns);
+        case 'treemap':
+          return generateTreemapChartData(data, categoricalColumns, numericColumns);
+        
         default:
           return generateBarChartData(data, categoricalColumns, numericColumns);
       }
@@ -330,7 +357,7 @@ function App() {
     }
   }, []);
 
-  // 保留所有原始圖表生成函數
+  // 保留所有原始圖表生成函數...（這裡省略以節省空間，實際代碼中需要保留）
   const generateBarChartData = (data, categoricalColumns, numericColumns) => {
     const xColumn = categoricalColumns[0] || Object.keys(data[0])[0];
     const yColumn = numericColumns[0] || Object.keys(data[0])[1];
@@ -495,10 +522,9 @@ function App() {
     return lineData;
   };
 
-  // 新增的進階圖表生成函數
+  // 進階圖表生成函數（保持不變）
   const generateStackedBarData = (data, categoricalColumns, numericColumns) => {
     const baseData = generateBarChartData(data, categoricalColumns, numericColumns);
-    // 如果有多個數值欄位，創建堆疊效果
     if (numericColumns.length > 1) {
       baseData.datasets = numericColumns.slice(0, 3).map((col, index) => ({
         label: col,
@@ -545,7 +571,133 @@ function App() {
     return baseData;
   };
 
-  // 修復後的圖表渲染函數 - 保留所有原始圖表類型
+  // 新增：商業圖表生成函數
+  const generateGaugeChartData = (data, numericColumns) => {
+    const valueColumn = numericColumns[0] || Object.keys(data[0])[0];
+    const currentValue = data.length > 0 ? (parseFloat(data[0][valueColumn]) || 0) : 0;
+    const maxValue = Math.max(...data.map(item => parseFloat(item[valueColumn]) || 0));
+    const targetValue = maxValue * 1.2; // 目標值設為最大值的120%
+    
+    return {
+      data: { 
+        data: data,
+        currentValue,
+        targetValue,
+        valueColumn
+      },
+      options: {
+        title: `${valueColumn} 指標監控`,
+        valueColumn,
+        minValue: 0,
+        maxValue: targetValue,
+        thresholds: [targetValue * 0.3, targetValue * 0.7],
+        unit: ''
+      }
+    };
+  };
+
+  const generateBulletChartData = (data, numericColumns, categoricalColumns) => {
+    const labelColumn = categoricalColumns[0] || Object.keys(data[0])[0];
+    const valueColumn = numericColumns[0] || Object.keys(data[0])[1];
+    const targetColumn = numericColumns[1] || valueColumn;
+    
+    return {
+      data: { 
+        data: data,
+        labelColumn,
+        valueColumn,
+        targetColumn
+      },
+      options: {
+        title: `${labelColumn} 目標達成分析`,
+        labelColumn,
+        valueColumn,
+        targetColumn
+      }
+    };
+  };
+
+  const generateKPICardData = (data, numericColumns, categoricalColumns) => {
+    const kpiColumn = numericColumns[0] || Object.keys(data[0])[0];
+    const currentValue = data.length > 0 ? (parseFloat(data[0][kpiColumn]) || 0) : 0;
+    const previousValue = data.length > 1 ? (parseFloat(data[1][kpiColumn]) || 0) : currentValue * 0.9;
+    
+    return {
+      data: { 
+        data: data,
+        currentValue,
+        previousValue,
+        kpiColumn
+      },
+      options: {
+        title: `${kpiColumn} KPI`,
+        kpiColumn,
+        format: 'number',
+        showTrend: true
+      }
+    };
+  };
+
+  const generateFunnelChartData = (data, categoricalColumns, numericColumns) => {
+    const labelColumn = categoricalColumns[0] || Object.keys(data[0])[0];
+    const valueColumn = numericColumns[0] || Object.keys(data[0])[1];
+    
+    // 聚合數據
+    const aggregated = data.reduce((acc, item) => {
+      const label = String(item[labelColumn] || '未分類');
+      const value = parseFloat(item[valueColumn]) || 0;
+      acc[label] = (acc[label] || 0) + value;
+      return acc;
+    }, {});
+    
+    return {
+      data: {
+        data: Object.entries(aggregated).map(([label, value]) => ({
+          [labelColumn]: label,
+          [valueColumn]: value
+        }))
+      },
+      options: {
+        labelColumn,
+        valueColumn,
+        title: `${labelColumn} 轉換漏斗`
+      }
+    };
+  };
+
+  const generateSankeyChartData = (data, categoricalColumns, numericColumns) => {
+    const sourceColumn = categoricalColumns[0] || Object.keys(data[0])[0];
+    const targetColumn = categoricalColumns[1] || Object.keys(data[0])[1];
+    const valueColumn = numericColumns[0] || Object.keys(data[0])[2];
+    
+    return {
+      data: { data },
+      options: {
+        sourceColumn,
+        targetColumn,
+        valueColumn,
+        title: `${sourceColumn} → ${targetColumn} 流向分析`
+      }
+    };
+  };
+
+  const generateTreemapChartData = (data, categoricalColumns, numericColumns) => {
+    const labelColumn = categoricalColumns[0] || Object.keys(data[0])[0];
+    const valueColumn = numericColumns[0] || Object.keys(data[0])[1];
+    const parentColumn = categoricalColumns[1] || null;
+    
+    return {
+      data: { data },
+      options: {
+        labelColumn,
+        valueColumn,
+        parentColumn,
+        title: `${labelColumn} 組成分析`
+      }
+    };
+  };
+
+  // 增強的圖表渲染函數 - 包含所有商業圖表
   const renderChart = useCallback((chart) => {
     const { id, type, config } = chart;
     
@@ -595,10 +747,9 @@ function App() {
     }
 
     try {
-      // 為每個圖表使用唯一的 key 來避免渲染問題
       const chartKey = `${type}-${id}-${Date.now()}`;
       
-      // 檢查是否為 D3.js 瀑布圖
+      // D3.js 瀑布圖
       if (type.toLowerCase() === 'waterfall') {
         return (
           <WaterfallChart 
@@ -609,7 +760,7 @@ function App() {
         );
       }
       
-      // 檢查是否為 Plotly 圖表
+      // Plotly 統計圖表
       if (['histogram', 'boxplot', 'violin', 'heatmap'].includes(type.toLowerCase())) {
         return (
           <PlotlyChart 
@@ -621,15 +772,20 @@ function App() {
         );
       }
 
-      // 檢查是否為特殊處理的圖表（儀表板圖）
-      if (type.toLowerCase() === 'gauge') {
-        return (
-          <GaugeChart 
-            key={chartKey}
-            data={config.data} 
-            options={config.options} 
-          />
-        );
+      // 商業圖表渲染
+      switch (type.toLowerCase()) {
+        case 'gauge':
+          return <GaugeChart key={chartKey} data={config.data} options={config.options} />;
+        case 'bullet':
+          return <BulletChart key={chartKey} data={config.data} options={config.options} />;
+        case 'kpicard':
+          return <KPICard key={chartKey} data={config.data} options={config.options} />;
+        case 'funnel':
+          return <FunnelChart key={chartKey} data={config.data} options={config.options} />;
+        case 'sankey':
+          return <SankeyChart key={chartKey} data={config.data} options={config.options} />;
+        case 'treemap':
+          return <TreemapChart key={chartKey} data={config.data} options={config.options} />;
       }
       
       // Chart.js 圖表
@@ -698,7 +854,7 @@ function App() {
     }
   }, []);
 
-  // 生成圖表 (快速生成) - 保留完整功能
+  // 其他函數保持不變...
   const handleGenerateChart = async (chartType) => {
     if (!analysisResult) return;
 
@@ -729,7 +885,6 @@ function App() {
     }
   };
 
-  // 自訂圖表生成 - 保留完整功能
   const handleCustomChart = (chartType) => {
     setCurrentChartType(chartType);
     setCustomDialogOpen(true);
@@ -767,7 +922,6 @@ function App() {
     }
   };
 
-  // 保留所有其他原始功能
   const handleDeleteChart = (chartId) => {
     setCharts(prev => prev.filter(chart => chart.id !== chartId));
   };
@@ -851,7 +1005,7 @@ function App() {
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Typography variant="h3" component="h1" gutterBottom align="center" sx={{ mb: 4 }}>
-        🎯 智能視覺化推薦系統 v2.0
+        🎯 智能視覺化推薦系統 v2.0 - 商業智慧版
       </Typography>
       
       {error && (
@@ -861,7 +1015,7 @@ function App() {
       )}
 
       <Grid container spacing={4}>
-        {/* 檔案上傳區域 */}
+        {/* 檔案上傳區域 - 保持不變 */}
         <Grid item xs={12} md={6}>
           <Paper elevation={3} sx={{ p: 3, height: 'fit-content' }}>
             <Typography variant="h5" gutterBottom>
@@ -920,7 +1074,7 @@ function App() {
           </Paper>
         </Grid>
 
-        {/* 資料分析結果 */}
+        {/* 資料分析結果 - 保持不變 */}
         <Grid item xs={12} md={6}>
           <Paper elevation={3} sx={{ p: 3, height: 'fit-content' }}>
             <Typography variant="h5" gutterBottom>
@@ -1003,7 +1157,7 @@ function App() {
           </Paper>
         </Grid>
 
-        {/* 自然語言輸入區域 - 保留完整功能 */}
+        {/* AI 推薦區域 - 保持不變 */}
         <Grid item xs={12}>
           <Paper elevation={3} sx={{ p: 3 }}>
             <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1020,7 +1174,6 @@ function App() {
               sx={{ mb: 3 }}
             />
             
-            {/* AI 推薦按鈕組 - 保留完整功能 */}
             <Box>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <AIIcon /> AI 智能推薦
@@ -1084,7 +1237,7 @@ function App() {
           </Paper>
         </Grid>
 
-        {/* 資料品質檢查區域 - 保留完整功能 */}
+        {/* 資料品質檢查 - 保持不變 */}
         {analysisResult && (
           <Grid item xs={12}>
             <DataQualityChecker 
@@ -1094,7 +1247,7 @@ function App() {
           </Grid>
         )}
 
-        {/* 推薦結果展示 - 保留完整功能 */}
+        {/* 推薦結果 - 保持不變 */}
         {recommendation && (
           <Grid item xs={12}>
             <Paper elevation={3} sx={{ p: 3 }}>
@@ -1103,7 +1256,6 @@ function App() {
               </Typography>
               
               <Grid container spacing={3}>
-                {/* 推薦的圖表類型 */}
                 <Grid item xs={12} md={8}>
                   <Card>
                     <CardContent>
@@ -1111,7 +1263,6 @@ function App() {
                         🤖 推薦的圖表類型
                       </Typography>
                       
-                      {/* 根據推薦方法顯示不同的結果 */}
                       {recommendation.method === 'claude-only' && recommendation.claude_recommendation?.chartTypes && (
                         <Stack direction="row" spacing={1} flexWrap="wrap">
                           {recommendation.claude_recommendation.chartTypes.map((chart, index) => (
@@ -1166,7 +1317,6 @@ function App() {
                   </Card>
                 </Grid>
                 
-                {/* 推薦理由 */}
                 <Grid item xs={12} md={4}>
                   <Card>
                     <CardContent>
@@ -1209,7 +1359,7 @@ function App() {
           </Grid>
         )}
 
-        {/* 主要內容區域 - 分頁顯示 - 保留完整功能 */}
+        {/* 主要內容區域 - 圖表選擇區域 */}
         {analysisResult && (
           <Grid item xs={12}>
             <Paper elevation={3} sx={{ p: 0 }}>
@@ -1241,7 +1391,6 @@ function App() {
               {/* 圖表工作區 */}
               {mainTab === 0 && (
                 <Box sx={{ p: 3 }}>
-                  {/* 快速操作工具欄 - 保留完整功能 */}
                   <QuickFilterToolbar
                     data={filteredData || analysisResult.data}
                     analysis={analysisResult.analysis}
@@ -1250,9 +1399,8 @@ function App() {
                     onLimit={handleDataLimit}
                   />
 
-                  {/* 圖表類型選擇器 - 保留完整功能 */}
                   <Typography variant="h5" gutterBottom sx={{ mt: 3 }}>
-                    🎨 選擇圖表類型
+                    🎨 選擇圖表類型 - 全新商業智慧套件
                   </Typography>
                   
                   {Object.entries(groupedChartTypes).map(([category, chartTypes]) => (
@@ -1261,8 +1409,18 @@ function App() {
                         {category === 'basic' && '📊 基礎圖表'}
                         {category === 'advanced' && '🚀 進階圖表'} 
                         {category === 'statistical' && '📈 統計圖表'}
-                        {category === 'business' && '💼 商業圖表'}
+                        {category === 'business' && '💼 商業智慧圖表 ⭐ NEW!'}
                       </Typography>
+                      
+                      {/* 商業圖表的特殊說明 */}
+                      {category === 'business' && (
+                        <Alert severity="info" sx={{ mb: 2 }}>
+                          <Typography variant="body2">
+                            🚀 <strong>全新商業智慧圖表套件</strong>：專為商業分析設計，包含KPI監控、轉換分析、流程視覺化等專業功能！
+                          </Typography>
+                        </Alert>
+                      )}
+                      
                       <Box sx={{ 
                         display: 'flex', 
                         flexWrap: 'wrap', 
@@ -1292,6 +1450,7 @@ function App() {
                                 sx={{ 
                                   borderColor: chart.color,
                                   color: chart.color,
+                                  fontWeight: category === 'business' ? 'bold' : 'normal',
                                   '&:hover': { 
                                     borderColor: chart.color,
                                     backgroundColor: `${chart.color}15`
@@ -1299,6 +1458,7 @@ function App() {
                                 }}
                               >
                                 {chart.icon} {chart.name}
+                                {category === 'business' && <Chip label="NEW" size="small" color="primary" sx={{ ml: 1 }} />}
                               </Button>
                               <Button
                                 onClick={() => handleCustomChart(chart.key)}
@@ -1325,7 +1485,7 @@ function App() {
                 </Box>
               )}
 
-              {/* 資料檢視 - 保留完整功能 */}
+              {/* 資料檢視 */}
               {mainTab === 1 && (
                 <Box sx={{ p: 3 }}>
                   <DataPreviewTable
@@ -1337,7 +1497,7 @@ function App() {
                 </Box>
               )}
 
-              {/* 圖表範例 - 保留完整功能 */}
+              {/* 圖表範例 */}
               {mainTab === 2 && ChartExamples && (
                 <Box sx={{ p: 3 }}>
                   <ChartExamples />
@@ -1347,12 +1507,15 @@ function App() {
           </Grid>
         )}
 
-        {/* 生成的圖表展示 - 保留完整功能 */}
+        {/* 生成的圖表展示 */}
         {charts.length > 0 && (
           <Grid item xs={12}>
             <Paper elevation={3} sx={{ p: 3 }}>
               <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 📈 生成的圖表 ({charts.length})
+                {charts.some(chart => CHART_TYPES[chart.type]?.category === 'business') && (
+                  <Chip label="包含商業圖表" color="primary" size="small" />
+                )}
               </Typography>
               <Grid container spacing={3}>
                 {charts.map((chart) => (
@@ -1363,6 +1526,9 @@ function App() {
                           <Typography variant="h6">
                             {CHART_TYPES[chart.type]?.icon} {CHART_TYPES[chart.type]?.name || chart.type.toUpperCase()} 圖表
                             {chart.customized && <Chip label="自訂" size="small" color="primary" sx={{ ml: 1 }} />}
+                            {CHART_TYPES[chart.type]?.category === 'business' && (
+                              <Chip label="商業圖表" size="small" color="secondary" sx={{ ml: 1 }} />
+                            )}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             建立時間: {chart.timestamp} | 資料來源: {chart.dataSource}
@@ -1398,7 +1564,7 @@ function App() {
         )}
       </Grid>
 
-      {/* 圖表自訂對話框 - 保留完整功能 */}
+      {/* 圖表自訂對話框 */}
       <ChartCustomizationDialog
         open={customDialogOpen}
         onClose={() => setCustomDialogOpen(false)}
