@@ -77,14 +77,6 @@ import TreemapChart from './components/charts/business/TreemapChart';
 import BulletChart from './components/charts/business/BulletChart';
 import KPICard from './components/charts/business/KPICard';
 
-// 條件性導入圖表範例組件
-let ChartExamples = null;
-try {
-  ChartExamples = require('./components/charts/SimpleChartTest').default;
-} catch (error) {
-  console.log('ChartExamples 組件未找到，將跳過載入');
-}
-
 const API_BASE_URL = 'http://localhost:3001';
 
 // 完整的圖表類型配置 - 包含所有商業圖表
@@ -703,6 +695,31 @@ function App() {
     
     console.log('渲染圖表:', { id, type, config });
     
+    if (type === 'horizontalbar') {
+      console.log('🔍 水平長條圖詳細調試:');
+      console.log('- 圖表ID:', id);
+      console.log('- 圖表類型:', type);
+      console.log('- 是否有config:', !!config);
+      console.log('- 是否有config.data:', !!config?.data);
+      
+      if (config?.data) {
+        console.log('- Labels:', JSON.stringify(config.data.labels));
+        console.log('- Datasets 數量:', config.data.datasets?.length);
+        
+        if (config.data.datasets?.[0]) {
+          const dataset = config.data.datasets[0];
+          console.log('- 第一個Dataset label:', dataset.label);
+          console.log('- 第一個Dataset data:', JSON.stringify(dataset.data));
+          console.log('- 第一個Dataset backgroundColor:', JSON.stringify(dataset.backgroundColor));
+          console.log('- Data 是否有值:', dataset.data?.every(val => val > 0));
+          console.log('- Data 最大值:', Math.max(...(dataset.data || [])));
+        }
+      }
+      
+      console.log('- config.indexAxis:', config?.indexAxis);
+      console.log('- 完整 config:', JSON.stringify(config, null, 2));
+    }
+
     if (!config || !config.data) {
       return (
         <Box sx={{ 
@@ -735,8 +752,34 @@ function App() {
 
     // 特殊處理某些圖表類型的選項
     if (type === 'horizontalbar') {
-      chartOptions.indexAxis = 'y';
-    }
+    chartOptions.indexAxis = 'y';
+    chartOptions.scales = {
+      ...chartOptions.scales,
+      x: { 
+        beginAtZero: true,
+        grid: { color: 'rgba(0,0,0,0.1)' },
+        title: {
+          display: true,
+          text: '銷售額 (元)'
+        }
+      },
+      y: { 
+        type: 'category',
+        grid: { color: 'rgba(0,0,0,0.1)' },
+        title: {
+          display: true,
+          text: '產品類別'
+        }
+      }
+    };
+    
+    // ⭐ 添加這段調試
+    console.log('✅ 水平長條圖配置完成:', {
+      indexAxis: chartOptions.indexAxis,
+      scalesX: chartOptions.scales?.x,
+      scalesY: chartOptions.scales?.y
+    });
+  }
     
     if (type === 'stackedbar' || type === 'stackedarea') {
       chartOptions.scales = {
@@ -1379,13 +1422,6 @@ function App() {
                   label="資料檢視" 
                   iconPosition="start"
                 />
-                {ChartExamples && (
-                  <Tab 
-                    icon={<SettingsIcon />} 
-                    label="圖表範例" 
-                    iconPosition="start"
-                  />
-                )}
               </Tabs>
 
               {/* 圖表工作區 */}
@@ -1494,13 +1530,6 @@ function App() {
                     onColumnSelect={handleColumnSelect}
                     selectedColumns={selectedColumns}
                   />
-                </Box>
-              )}
-
-              {/* 圖表範例 */}
-              {mainTab === 2 && ChartExamples && (
-                <Box sx={{ p: 3 }}>
-                  <ChartExamples />
                 </Box>
               )}
             </Paper>

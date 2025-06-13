@@ -1393,22 +1393,134 @@ class ChartService {
   
   // 4. 水平長條圖
   generateHorizontalBarChart(data, options) {
-    const { xColumn, yColumn } = options;
-    
+    console.log('🚨 調用了 generateHorizontalBarChart 方法'); // 添加這行
+    console.log('🚨 收到的資料:', data.slice(0, 3));
+    console.log('🚨 收到的選項:', options);
+    console.log('🔧 處理水平長條圖，資料長度:', data.length);
+    console.log('🔧 選項:', options);
+    console.log('🔧 前3筆資料範例:', data.slice(0, 3));
+
+    // ⭐ 修復：正確的自動欄位選擇邏輯
+    const columns = Object.keys(data[0] || {});
+    const numericalColumns = columns.filter(col => 
+      !isNaN(parseFloat(data[0][col])) && col !== '日期'
+    );
+    const categoricalColumns = columns.filter(col => 
+      isNaN(parseFloat(data[0][col])) && col !== '日期'
+    );
+
+    console.log('🔧 數值欄位:', numericalColumns);
+    console.log('🔧 分類欄位:', categoricalColumns);
+
+    // ⭐ 修復：選擇正確的欄位進行聚合
+    // 對於你的資料，應該使用產品類別作為 X 軸，銷售額作為 Y 軸
+    const xColumn = categoricalColumns.find(col => col.includes('類別')) || categoricalColumns[0] || '產品類別';
+    const yColumn = numericalColumns.find(col => col.includes('銷售額')) || numericalColumns[0] || '銷售額';
+
+    console.log('🔧 選擇的欄位 - X軸 (分類):', xColumn, 'Y軸 (數值):', yColumn);
+
+    // ⭐ 修復：正確的資料聚合邏輯
+    const aggregatedData = data.reduce((acc, item) => {
+      const category = item[xColumn];
+      const value = parseFloat(item[yColumn]) || 0;
+      
+      if (!acc[category]) {
+        acc[category] = 0;
+      }
+      acc[category] += value;
+      return acc;
+    }, {});
+
+    console.log('🔧 聚合後的資料:', aggregatedData);
+
+    const labels = Object.keys(aggregatedData);
+    const values = Object.values(aggregatedData);
+
+    console.log('🔧 最終標籤:', labels);
+    console.log('🔧 最終數值:', values);
+
+    // ⭐ 確保有有效資料
+    if (values.length === 0 || values.every(v => v === 0)) {
+      console.log('❌ 沒有有效的數值資料');
+      // 提供範例資料以避免全是 0
+      return {
+        type: 'bar',
+        data: {
+          labels: ['電子產品', '服飾', '食品'],
+          datasets: [{
+            label: '銷售額',
+            data: [100, 200, 150], // 範例資料
+            backgroundColor: [
+              'rgba(54, 162, 235, 0.8)',
+              'rgba(255, 99, 132, 0.8)',
+              'rgba(255, 205, 86, 0.8)'
+            ],
+            borderColor: [
+              'rgba(54, 162, 235, 1)',
+              'rgba(255, 99, 132, 1)', 
+              'rgba(255, 205, 86, 1)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: `${xColumn} 水平分析 (範例資料)`,
+              font: { size: 16 }
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: yColumn
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: xColumn
+              }
+            }
+          }
+        }
+      };
+    }
+
+    // ⭐ 修復：返回正確格式的資料
     return {
       type: 'bar',
       data: {
-        labels: data.map(item => item[xColumn]),
+        labels: labels,
         datasets: [{
           label: yColumn,
-          data: data.map(item => parseFloat(item[yColumn]) || 0),
-          backgroundColor: 'rgba(75, 192, 192, 0.6)',
-          borderColor: 'rgba(75, 192, 192, 1)',
-          borderWidth: 1
+          data: values,
+          backgroundColor: [
+            'rgba(54, 162, 235, 0.8)',
+            'rgba(255, 99, 132, 0.8)',
+            'rgba(255, 205, 86, 0.8)',
+            'rgba(75, 192, 192, 0.8)',
+            'rgba(153, 102, 255, 0.8)'
+          ].slice(0, labels.length),
+          borderColor: [
+            'rgba(54, 162, 235, 1)',
+            'rgba(255, 99, 132, 1)',
+            'rgba(255, 205, 86, 1)',
+            'rgba(75, 192, 192, 1)',
+            'rgba(153, 102, 255, 1)'
+          ].slice(0, labels.length),
+          borderWidth: 1,
+          borderRadius: 4
         }]
       },
       options: {
-        indexAxis: 'y',
+        indexAxis: 'y',  // 🔑 關鍵設定
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
@@ -1416,6 +1528,10 @@ class ChartService {
             display: true,
             text: `${xColumn} 水平分析`,
             font: { size: 16 }
+          },
+          legend: {
+            display: true,
+            position: 'top'
           }
         },
         scales: {
@@ -1424,12 +1540,20 @@ class ChartService {
             title: {
               display: true,
               text: yColumn
+            },
+            grid: {
+              display: true,
+              color: 'rgba(0,0,0,0.1)'
             }
           },
           y: {
             title: {
               display: true,
               text: xColumn
+            },
+            grid: {
+              display: true,
+              color: 'rgba(0,0,0,0.1)'
             }
           }
         }

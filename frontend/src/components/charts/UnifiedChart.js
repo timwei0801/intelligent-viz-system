@@ -25,7 +25,7 @@ import {
 } from 'react-chartjs-2';
 import Plot from 'react-plotly.js';
 import { CHART_CONFIGS } from './chartConfigs';
-import { getProcessor, validateData, detectDataFormat } from './chartProcessors';
+import { getProcessor, validateData } from './chartProcessors';
 import { pluginManager } from './chartPlugins';
 import { CHARTJS_DEFAULTS, DEFAULT_COLORS, PLOTLY_CONFIG } from '../../utils/chartConfig';
 
@@ -65,7 +65,7 @@ const UnifiedChart = ({ type, data, options = {}, plugins = [], onError }) => {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 獲取圖表配置
+  // 獲取圖表配置 - 移到條件檢查之前
   const chartConfig = useMemo(() => {
     const allConfigs = {
       ...CHART_CONFIGS.basic,
@@ -75,21 +75,13 @@ const UnifiedChart = ({ type, data, options = {}, plugins = [], onError }) => {
     return allConfigs[type];
   }, [type]);
 
-  // 驗證圖表類型
-  if (!chartConfig) {
-    const availableTypes = Object.keys({
-      ...CHART_CONFIGS.basic,
-      ...CHART_CONFIGS.plotly,
-      ...CHART_CONFIGS.d3
-    }).join(', ');
-    
-    const errorMsg = `不支援的圖表類型: ${type}。可用類型: ${availableTypes}`;
-    if (onError) onError(new Error(errorMsg));
-    return <div className="chart-error">{errorMsg}</div>;
-  }
-
-  // 處理數據和選項
+  // 處理數據和選項 - 移到條件檢查之前
   const { processedData, processedOptions } = useMemo(() => {
+    // 如果沒有圖表配置或發生錯誤，返回 null
+    if (!chartConfig) {
+      return { processedData: null, processedOptions: null };
+    }
+
     try {
       // 驗證數據
       validateData(data, chartConfig.dataFormat);
@@ -123,9 +115,11 @@ const UnifiedChart = ({ type, data, options = {}, plugins = [], onError }) => {
     }
   }, [data, options, chartConfig, plugins, onError]);
 
-  // 獲取 Chart.js 選項
+  // 獲取 Chart.js 選項 - 移到條件檢查之前
   const getChartJSOptions = useMemo(() => {
-    if (chartConfig.library !== 'chartjs') return {};
+    if (!chartConfig || chartConfig.library !== 'chartjs' || !processedOptions) {
+      return {};
+    }
 
     const baseOptions = {
       ...CHARTJS_DEFAULTS,
@@ -155,163 +149,13 @@ const UnifiedChart = ({ type, data, options = {}, plugins = [], onError }) => {
       ...typeSpecificOptions,
       ...processedOptions.chartOptions
     };
-  }, [type, processedOptions, chartConfig.library]);
+  }, [type, processedOptions, chartConfig]);
 
-  // 獲取特定類型的配置選項
-  const getTypeSpecificOptions = (chartType, options) => {
-    const configs = {
-      // 甜甜圈圖
-      doughnut: {
-        cutout: options.cutout || '50%',
-        radius: options.radius || '90%'
-      },
-
-      // 半圓餅圖
-      halfPie: {
-        cutout: options.cutout || 0,
-        circumference: Math.PI,
-        rotation: Math.PI
-      },
-
-      // 水平長條圖
-      horizontalBar: {
-        indexAxis: 'y',
-        scales: {
-          x: {
-            beginAtZero: true,
-            title: {
-              display: !!options.xAxisTitle,
-              text: options.xAxisTitle || 'X軸'
-            }
-          },
-          y: {
-            title: {
-              display: !!options.yAxisTitle,
-              text: options.yAxisTitle || 'Y軸'
-            }
-          }
-        }
-      },
-
-      // 堆疊圖表
-      stackedBar: {
-        scales: {
-          x: { stacked: true },
-          y: { stacked: true, beginAtZero: true }
-        }
-      },
-
-      stackedArea: {
-        scales: {
-          x: { stacked: true },
-          y: { stacked: true, beginAtZero: true }
-        },
-        elements: {
-          line: { fill: true }
-        }
-      },
-
-      // 散佈圖和氣泡圖
-      scatter: {
-        scales: {
-          x: { 
-            type: 'linear', 
-            position: 'bottom',
-            title: {
-              display: !!options.xAxisTitle,
-              text: options.xAxisTitle || 'X軸'
-            }
-          },
-          y: { 
-            type: 'linear',
-            title: {
-              display: !!options.yAxisTitle,
-              text: options.yAxisTitle || 'Y軸'
-            }
-          }
-        }
-      },
-
-      bubble: {
-        scales: {
-          x: { 
-            type: 'linear', 
-            position: 'bottom',
-            title: {
-              display: !!options.xAxisTitle,
-              text: options.xAxisTitle || 'X軸'
-            }
-          },
-          y: { 
-            type: 'linear',
-            title: {
-              display: !!options.yAxisTitle,
-              text: options.yAxisTitle || 'Y軸'
-            }
-          }
-        }
-      },
-
-      // 雷達圖 - 修正版
-      radar: {
-        scales: {
-          r: {
-            beginAtZero: true,
-            max: options.maxValue || undefined,
-            min: options.minValue || 0,
-            ticks: {
-              stepSize: options.stepSize || undefined,
-              display: true
-            },
-            pointLabels: {
-              display: true,
-              font: { size: 12 }
-            },
-            grid: {
-              display: true
-            },
-            angleLines: {
-              display: true
-            }
-          }
-        },
-        elements: {
-          point: {
-            radius: 4,
-            hoverRadius: 6
-          },
-          line: {
-            borderWidth: 2
-          }
-        }
-      },
-
-      // 階梯線圖
-      stepped: {
-        elements: {
-          line: {
-            stepped: true,
-            tension: 0
-          }
-        }
-      },
-
-      // 面積圖
-      area: {
-        elements: {
-          line: {
-            fill: true
-          }
-        }
-      }
-    };
-
-    return configs[chartType] || {};
-  };
-
-  // 獲取 Plotly 數據和佈局 - 修正版
+  // 獲取 Plotly 數據和佈局 - 移到條件檢查之前
   const getPlotlyConfig = useMemo(() => {
-    if (chartConfig.library !== 'plotly') return { data: [], layout: {} };
+    if (!chartConfig || chartConfig.library !== 'plotly' || !processedOptions) {
+      return { data: [], layout: {} };
+    }
 
     const baseLayout = {
       title: {
@@ -324,9 +168,9 @@ const UnifiedChart = ({ type, data, options = {}, plugins = [], onError }) => {
       plot_bgcolor: 'white'
     };
 
-    // 特定圖表類型的 Plotly 配置 - 修正版
+    // 特定圖表類型的 Plotly 配置
     const plotlyConfigs = {
-      // 熱力圖 - 修正版
+      // 熱力圖
       heatmap: {
         data: (() => {
           // 如果已經是正確格式
@@ -448,7 +292,7 @@ const UnifiedChart = ({ type, data, options = {}, plugins = [], onError }) => {
         }
       },
 
-      // 箱型圖 - 修正版
+      // 箱型圖
       boxplot: {
         data: [{
           y: Array.isArray(processedData) ? 
@@ -466,7 +310,7 @@ const UnifiedChart = ({ type, data, options = {}, plugins = [], onError }) => {
         }
       },
 
-      // 小提琴圖 - 修正版
+      // 小提琴圖
       violin: {
         data: [{
           y: Array.isArray(processedData) ? 
@@ -503,7 +347,179 @@ const UnifiedChart = ({ type, data, options = {}, plugins = [], onError }) => {
     };
 
     return plotlyConfigs[type] || { data: [], layout: baseLayout };
-  }, [type, processedData, processedOptions, chartConfig.library]);
+  }, [type, processedData, processedOptions, chartConfig]);
+
+  // 應用插件的渲染後處理 - 移到條件檢查之前
+  useEffect(() => {
+    if (chartRef.current) {
+      pluginManager.afterRender(chartRef.current, plugins);
+    }
+  }, [plugins]);
+
+  // 驗證圖表類型 - 在所有 hooks 之後
+  if (!chartConfig) {
+    const availableTypes = Object.keys({
+      ...CHART_CONFIGS.basic,
+      ...CHART_CONFIGS.plotly,
+      ...CHART_CONFIGS.d3
+    }).join(', ');
+    
+    const errorMsg = `不支援的圖表類型: ${type}。可用類型: ${availableTypes}`;
+    if (onError) onError(new Error(errorMsg));
+    return <div className="chart-error">{errorMsg}</div>;
+  }
+
+  // 獲取特定類型的配置選項
+  const getTypeSpecificOptions = (chartType, options) => {
+    const configs = {
+      // 甜甜圈圖
+      doughnut: {
+        cutout: options.cutout || '50%',
+        radius: options.radius || '90%'
+      },
+
+      // 半圓餅圖
+      halfPie: {
+        cutout: options.cutout || 0,
+        circumference: Math.PI,
+        rotation: Math.PI
+      },
+
+      // 水平長條圖
+      horizontalBar: {
+        indexAxis: 'y',
+        scales: {
+          x: {
+            beginAtZero: true,
+            title: {
+              display: !!options.xAxisTitle,
+              text: options.xAxisTitle || 'X軸'
+            }
+          },
+          y: {
+            title: {
+              display: !!options.yAxisTitle,
+              text: options.yAxisTitle || 'Y軸'
+            }
+          }
+        }
+      },
+
+      // 堆疊圖表
+      stackedBar: {
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true }
+        }
+      },
+
+      stackedArea: {
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true }
+        },
+        elements: {
+          line: { fill: true }
+        }
+      },
+
+      // 散佈圖和氣泡圖
+      scatter: {
+        scales: {
+          x: { 
+            type: 'linear', 
+            position: 'bottom',
+            title: {
+              display: !!options.xAxisTitle,
+              text: options.xAxisTitle || 'X軸'
+            }
+          },
+          y: { 
+            type: 'linear',
+            title: {
+              display: !!options.yAxisTitle,
+              text: options.yAxisTitle || 'Y軸'
+            }
+          }
+        }
+      },
+
+      bubble: {
+        scales: {
+          x: { 
+            type: 'linear', 
+            position: 'bottom',
+            title: {
+              display: !!options.xAxisTitle,
+              text: options.xAxisTitle || 'X軸'
+            }
+          },
+          y: { 
+            type: 'linear',
+            title: {
+              display: !!options.yAxisTitle,
+              text: options.yAxisTitle || 'Y軸'
+            }
+          }
+        }
+      },
+
+      // 雷達圖
+      radar: {
+        scales: {
+          r: {
+            beginAtZero: true,
+            max: options.maxValue || undefined,
+            min: options.minValue || 0,
+            ticks: {
+              stepSize: options.stepSize || undefined,
+              display: true
+            },
+            pointLabels: {
+              display: true,
+              font: { size: 12 }
+            },
+            grid: {
+              display: true
+            },
+            angleLines: {
+              display: true
+            }
+          }
+        },
+        elements: {
+          point: {
+            radius: 4,
+            hoverRadius: 6
+          },
+          line: {
+            borderWidth: 2
+          }
+        }
+      },
+
+      // 階梯線圖
+      stepped: {
+        elements: {
+          line: {
+            stepped: true,
+            tension: 0
+          }
+        }
+      },
+
+      // 面積圖
+      area: {
+        elements: {
+          line: {
+            fill: true
+          }
+        }
+      }
+    };
+
+    return configs[chartType] || {};
+  };
 
   // 計算相關係數的輔助函數
   const calculateCorrelation = (x, y) => {
@@ -642,13 +658,6 @@ const UnifiedChart = ({ type, data, options = {}, plugins = [], onError }) => {
       );
     }
   };
-
-  // 應用插件的渲染後處理
-  useEffect(() => {
-    if (chartRef.current) {
-      pluginManager.afterRender(chartRef.current, plugins);
-    }
-  }, [plugins]);
 
   return (
     <div className={`unified-chart ${type}-chart ${chartConfig.library}-chart`}>
