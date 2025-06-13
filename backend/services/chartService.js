@@ -266,117 +266,66 @@ class ChartService {
   // 修正版本：堆疊長條圖
   generateStackedBarChart(data, options) {
     console.log('🔧 生成堆疊長條圖');
-    console.log('資料範例:', data.slice(0, 3));
-    console.log('選項:', options);
+    // ⭐ 獲取顏色調色盤
+    const colorPalette = this.getColorPalette(options.colorScheme);
 
-    // 檢查必要參數
+    // 自動推斷必要欄位
     if (!options.xColumn || !options.groupByColumn || !options.valueColumn) {
-      // 自動推斷欄位
       const columns = Object.keys(data[0] || {});
-      const numericalColumns = columns.filter(col => 
+      const numericalColumns = columns.filter(col =>
         !isNaN(parseFloat(data[0][col])) && isFinite(data[0][col])
       );
-      const categoricalColumns = columns.filter(col => 
+      const categoricalColumns = columns.filter(col =>
         isNaN(parseFloat(data[0][col])) || !isFinite(data[0][col])
       );
-
       options.xColumn = options.xColumn || categoricalColumns[0];
       options.groupByColumn = options.groupByColumn || categoricalColumns[1] || categoricalColumns[0];
       options.valueColumn = options.valueColumn || numericalColumns[0];
     }
-
     const { xColumn, groupByColumn, valueColumn } = options;
 
-    console.log(`使用欄位 - X: ${xColumn}, 分組: ${groupByColumn}, 數值: ${valueColumn}`);
-
-    // 驗證欄位存在
-    if (!data[0][xColumn] && data[0][xColumn] !== 0) {
-      throw new Error(`找不到 X 軸欄位: ${xColumn}`);
-    }
-    if (!data[0][groupByColumn] && data[0][groupByColumn] !== 0) {
-      throw new Error(`找不到分組欄位: ${groupByColumn}`);
-    }
-    if (!data[0][valueColumn] && data[0][valueColumn] !== 0) {
-      throw new Error(`找不到數值欄位: ${valueColumn}`);
-    }
-
     // 過濾有效資料
-    const validData = data.filter(item => 
-      item[xColumn] !== null && 
-      item[xColumn] !== undefined && 
-      item[groupByColumn] !== null && 
-      item[groupByColumn] !== undefined &&
+    const validData = data.filter(item =>
+      item[xColumn] != null &&
+      item[groupByColumn] != null &&
       !isNaN(parseFloat(item[valueColumn]))
     );
+    if (validData.length === 0) throw new Error('沒有有效的資料可以繪製堆疊長條圖');
 
-    if (validData.length === 0) {
-      throw new Error('沒有有效的資料可以繪製堆疊長條圖');
-    }
-
-    // 獲取所有類別和系列
+    // 類別與系列
     const categories = [...new Set(validData.map(item => String(item[xColumn])))].sort();
     const series = [...new Set(validData.map(item => String(item[groupByColumn])))].sort();
 
-    console.log('類別:', categories);
-    console.log('系列:', series);
-
-    // 組織資料
-    const datasets = series.map((seriesName, index) => {
-      const seriesData = categories.map(category => {
-        const items = validData.filter(d => 
-          String(d[xColumn]) === category && String(d[groupByColumn]) === seriesName
-        );
-        // 如果有多個項目，加總
-        const sum = items.reduce((total, item) => total + (parseFloat(item[valueColumn]) || 0), 0);
-        return sum;
-      });
-
-      return {
-        label: seriesName,
-        data: seriesData,
-        backgroundColor: this.colorPalettes.primary[index % this.colorPalettes.primary.length],
-        borderColor: this.colorPalettes.border[index % this.colorPalettes.border.length],
-        borderWidth: 1
-      };
-    });
-
-    console.log('生成的 datasets:', datasets);
+    // 組裝 datasets
+    const datasets = series.map((seriesName, i) => ({
+      label: seriesName,
+      data: categories.map(cat => {
+        return validData
+          .filter(d => String(d[xColumn]) === cat && String(d[groupByColumn]) === seriesName)
+          .reduce((sum, d) => sum + parseFloat(d[valueColumn] || 0), 0);
+      }),
+      backgroundColor: colorPalette.primary[i % colorPalette.primary.length],
+      borderColor: colorPalette.border[i % colorPalette.border.length],
+      borderWidth: 1
+    }));
 
     return {
       type: 'bar',
-      data: {
-        labels: categories,
-        datasets: datasets
-      },
+      data: { labels: categories, datasets },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
           title: {
             display: true,
-            text: `${xColumn} 堆疊分析 (按 ${groupByColumn} 分組)`,
+            text: options.title || `${xColumn} 堆疊分析 (按 ${groupByColumn} 分組)`,
             font: { size: 16 }
           },
-          legend: {
-            position: 'top'
-          }
+          legend: { position: 'top' }
         },
         scales: {
-          x: {
-            stacked: true,
-            title: {
-              display: true,
-              text: xColumn
-            }
-          },
-          y: {
-            stacked: true,
-            beginAtZero: true,
-            title: {
-              display: true,
-              text: valueColumn
-            }
-          }
+          x: { stacked: true, title: { display: true, text: options.xAxisTitle || xColumn } },
+          y: { stacked: true, beginAtZero: true, title: { display: true, text: options.yAxisTitle || valueColumn } }
         }
       }
     };
@@ -385,94 +334,70 @@ class ChartService {
   // 修正版本：分組長條圖
   generateGroupedBarChart(data, options) {
     console.log('🔧 生成分組長條圖');
+    const colorPalette = this.getColorPalette(options.colorScheme);
 
-    // 檢查必要參數
+    // 自動推斷必要欄位
     if (!options.xColumn || !options.groupByColumn || !options.valueColumn) {
       const columns = Object.keys(data[0] || {});
-      const numericalColumns = columns.filter(col => 
+      const numericalColumns = columns.filter(col =>
         !isNaN(parseFloat(data[0][col])) && isFinite(data[0][col])
       );
-      const categoricalColumns = columns.filter(col => 
+      const categoricalColumns = columns.filter(col =>
         isNaN(parseFloat(data[0][col])) || !isFinite(data[0][col])
       );
-
       options.xColumn = options.xColumn || categoricalColumns[0];
       options.groupByColumn = options.groupByColumn || categoricalColumns[1] || categoricalColumns[0];
       options.valueColumn = options.valueColumn || numericalColumns[0];
     }
-
     const { xColumn, groupByColumn, valueColumn } = options;
 
     // 過濾有效資料
-    const validData = data.filter(item => 
-      item[xColumn] !== null && 
-      item[xColumn] !== undefined && 
-      item[groupByColumn] !== null && 
-      item[groupByColumn] !== undefined &&
+    const validData = data.filter(item =>
+      item[xColumn] != null &&
+      item[groupByColumn] != null &&
       !isNaN(parseFloat(item[valueColumn]))
     );
+    if (validData.length === 0) throw new Error('沒有有效的資料可以繪製分組長條圖');
 
-    if (validData.length === 0) {
-      throw new Error('沒有有效的資料可以繪製分組長條圖');
-    }
-
-    // 獲取所有類別和系列
+    // 類別與系列
     const categories = [...new Set(validData.map(item => String(item[xColumn])))].sort();
     const series = [...new Set(validData.map(item => String(item[groupByColumn])))].sort();
 
-    // 組織資料（與堆疊圖相同的邏輯，但不設定 stacked）
-    const datasets = series.map((seriesName, index) => {
-      const seriesData = categories.map(category => {
-        const items = validData.filter(d => 
-          String(d[xColumn]) === category && String(d[groupByColumn]) === seriesName
-        );
-        const sum = items.reduce((total, item) => total + (parseFloat(item[valueColumn]) || 0), 0);
-        return sum;
-      });
-
-      return {
-        label: seriesName,
-        data: seriesData,
-        backgroundColor: this.colorPalettes.primary[index % this.colorPalettes.primary.length],
-        borderColor: this.colorPalettes.border[index % this.colorPalettes.border.length],
-        borderWidth: 1
-      };
-    });
+    // 組裝 datasets
+    const datasets = series.map((seriesName, i) => ({
+      label: seriesName,
+      data: categories.map(cat => {
+        return validData
+          .filter(d => String(d[xColumn]) === cat && String(d[groupByColumn]) === seriesName)
+          .reduce((sum, d) => sum + parseFloat(d[valueColumn] || 0), 0);
+      }),
+      backgroundColor: colorPalette.primary[i % colorPalette.primary.length],
+      borderColor: colorPalette.border[i % colorPalette.border.length],
+      borderWidth: 1
+    }));
 
     return {
       type: 'bar',
-      data: {
-        labels: categories,
-        datasets: datasets
-      },
+      data: { labels: categories, datasets },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
           title: {
             display: true,
-            text: `${xColumn} 分組比較 (按 ${groupByColumn} 分組)`,
+            text: options.title || `${xColumn} 分組比較 (按 ${groupByColumn} 分組)`,
             font: { size: 16 }
           },
-          legend: {
-            position: 'top'
-          }
+          legend: { position: 'top' }
         },
         scales: {
           x: {
-            // 注意：這裡不設定 stacked: true
-            title: {
-              display: true,
-              text: xColumn
-            }
+            // 不設定 stacked: true
+            title: { display: true, text: options.xAxisTitle || xColumn }
           },
           y: {
-            // 注意：這裡不設定 stacked: true
             beginAtZero: true,
-            title: {
-              display: true,
-              text: valueColumn
-            }
+            title: { display: true, text: options.yAxisTitle || valueColumn }
           }
         }
       }
@@ -482,37 +407,30 @@ class ChartService {
   // 修正版本：混合圖表
   generateMixedChart(data, options) {
     console.log('🔧 生成混合圖表');
+    const colorPalette = this.getColorPalette(options.colorScheme);
 
     // 自動推斷欄位
     if (!options.xColumn || !options.barColumn || !options.lineColumn) {
       const columns = Object.keys(data[0] || {});
-      const numericalColumns = columns.filter(col => 
+      const numericalColumns = columns.filter(col =>
         !isNaN(parseFloat(data[0][col])) && isFinite(data[0][col])
       );
-      const categoricalColumns = columns.filter(col => 
+      const categoricalColumns = columns.filter(col =>
         isNaN(parseFloat(data[0][col])) || !isFinite(data[0][col])
       );
-
       options.xColumn = options.xColumn || categoricalColumns[0] || columns[0];
       options.barColumn = options.barColumn || numericalColumns[0];
       options.lineColumn = options.lineColumn || numericalColumns[1] || numericalColumns[0];
     }
-
     const { xColumn, barColumn, lineColumn } = options;
 
-    console.log(`混合圖表欄位 - X: ${xColumn}, 柱狀: ${barColumn}, 線條: ${lineColumn}`);
-
     // 過濾有效資料
-    const validData = data.filter(item => 
-      item[xColumn] !== null && 
-      item[xColumn] !== undefined &&
+    const validData = data.filter(item =>
+      item[xColumn] != null &&
       !isNaN(parseFloat(item[barColumn])) &&
       !isNaN(parseFloat(item[lineColumn]))
     );
-
-    if (validData.length === 0) {
-      throw new Error('沒有有效的資料可以繪製混合圖表');
-    }
+    if (validData.length === 0) throw new Error('沒有有效的資料可以繪製混合圖表');
 
     // 如果資料超過20個點，取前20個
     const processedData = validData.slice(0, 20);
@@ -526,8 +444,8 @@ class ChartService {
             type: 'bar',
             label: barColumn,
             data: processedData.map(item => parseFloat(item[barColumn]) || 0),
-            backgroundColor: 'rgba(54, 162, 235, 0.6)',
-            borderColor: 'rgba(54, 162, 235, 1)',
+            backgroundColor: colorPalette.primary[0 % colorPalette.primary.length],
+            borderColor: colorPalette.border[0 % colorPalette.border.length],
             borderWidth: 1,
             yAxisID: 'y'
           },
@@ -535,8 +453,8 @@ class ChartService {
             type: 'line',
             label: lineColumn,
             data: processedData.map(item => parseFloat(item[lineColumn]) || 0),
-            borderColor: 'rgba(255, 99, 132, 1)',
-            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            borderColor: colorPalette.border[1 % colorPalette.border.length],
+            backgroundColor: colorPalette.primary[1 % colorPalette.primary.length],
             borderWidth: 2,
             fill: false,
             tension: 0.1,
@@ -550,42 +468,29 @@ class ChartService {
         plugins: {
           title: {
             display: true,
-            text: `${barColumn} vs ${lineColumn} 混合分析`,
+            text: options.title || `${barColumn} vs ${lineColumn} 混合分析`,
             font: { size: 16 }
           },
-          legend: {
-            position: 'top'
-          }
+          legend: { position: 'top' }
         },
         scales: {
           x: {
-            title: {
-              display: true,
-              text: xColumn
-            }
+            title: { display: true, text: options.xAxisTitle || xColumn }
           },
           y: {
             type: 'linear',
             display: true,
             position: 'left',
             beginAtZero: true,
-            title: {
-              display: true,
-              text: barColumn
-            }
+            title: { display: true, text: options.yAxisTitle || barColumn }
           },
           y1: {
             type: 'linear',
             display: true,
             position: 'right',
             beginAtZero: true,
-            title: {
-              display: true,
-              text: lineColumn
-            },
-            grid: {
-              drawOnChartArea: false,
-            },
+            title: { display: true, text: options.yAxisTitle || lineColumn },
+            grid: { drawOnChartArea: false }
           }
         }
       }
@@ -695,13 +600,12 @@ class ChartService {
     };
   }
 
-  // 基礎圖表方法保持不變
+  // 修正版本：基礎長條圖
   generateBarChart(data, options) {
+    const colorPalette = this.getColorPalette(options.colorScheme);
     const { xColumn, yColumn } = options;
-    
     // 檢查是否需要聚合
     const uniqueX = [...new Set(data.map(item => item[xColumn]))];
-    
     if (uniqueX.length < data.length) {
       // 需要聚合
       const aggregated = uniqueX.map(x => {
@@ -709,7 +613,6 @@ class ChartService {
         const sum = items.reduce((total, item) => total + (parseFloat(item[yColumn]) || 0), 0);
         return { [xColumn]: x, [yColumn]: sum };
       });
-      
       return {
         type: 'bar',
         data: {
@@ -717,8 +620,8 @@ class ChartService {
           datasets: [{
             label: yColumn || '數值',
             data: aggregated.map(item => item[yColumn]),
-            backgroundColor: 'rgba(54, 162, 235, 0.6)',
-            borderColor: 'rgba(54, 162, 235, 1)',
+            backgroundColor: colorPalette.primary[0 % colorPalette.primary.length],
+            borderColor: colorPalette.border[0 % colorPalette.border.length],
             borderWidth: 1
           }]
         },
@@ -728,19 +631,22 @@ class ChartService {
           plugins: {
             title: {
               display: true,
-              text: `${xColumn} vs ${yColumn}`,
+              text: options.title || `${xColumn} vs ${yColumn}`,
               font: { size: 16 }
             }
           },
           scales: {
             y: {
-              beginAtZero: true
+              beginAtZero: true,
+              title: { display: true, text: options.yAxisTitle || yColumn }
+            },
+            x: {
+              title: { display: true, text: options.xAxisTitle || xColumn }
             }
           }
         }
       };
     }
-
     return {
       type: 'bar',
       data: {
@@ -748,8 +654,8 @@ class ChartService {
         datasets: [{
           label: yColumn || '數值',
           data: data.map(item => parseFloat(item[yColumn]) || 0),
-          backgroundColor: 'rgba(54, 162, 235, 0.6)',
-          borderColor: 'rgba(54, 162, 235, 1)',
+          backgroundColor: colorPalette.primary[0 % colorPalette.primary.length],
+          borderColor: colorPalette.border[0 % colorPalette.border.length],
           borderWidth: 1
         }]
       },
@@ -759,13 +665,17 @@ class ChartService {
         plugins: {
           title: {
             display: true,
-            text: `${xColumn || 'X軸'} vs ${yColumn || 'Y軸'}`,
+            text: options.title || `${xColumn || 'X軸'} vs ${yColumn || 'Y軸'}`,
             font: { size: 16 }
           }
         },
         scales: {
           y: {
-            beginAtZero: true
+            beginAtZero: true,
+            title: { display: true, text: options.yAxisTitle || yColumn }
+          },
+          x: {
+            title: { display: true, text: options.xAxisTitle || xColumn }
           }
         }
       }
@@ -773,8 +683,8 @@ class ChartService {
   }
 
   generateLineChart(data, options) {
+    const colorPalette = this.getColorPalette(options.colorScheme);
     const { xColumn, yColumn } = options;
-    
     return {
       type: 'line',
       data: {
@@ -782,8 +692,8 @@ class ChartService {
         datasets: [{
           label: yColumn || '數值',
           data: data.map(item => parseFloat(item[yColumn]) || 0),
-          borderColor: 'rgba(75, 192, 192, 1)',
-          backgroundColor: 'rgba(75, 192, 192, 0.2)',
+          borderColor: colorPalette.border[0 % colorPalette.border.length],
+          backgroundColor: colorPalette.primary[0 % colorPalette.primary.length],
           tension: 0.1
         }]
       },
@@ -793,13 +703,17 @@ class ChartService {
         plugins: {
           title: {
             display: true,
-            text: `${xColumn || 'X軸'} 趨勢變化`,
+            text: options.title || `${xColumn || 'X軸'} 趨勢變化`,
             font: { size: 16 }
           }
         },
         scales: {
           y: {
-            beginAtZero: true
+            beginAtZero: true,
+            title: { display: true, text: options.yAxisTitle || yColumn }
+          },
+          x: {
+            title: { display: true, text: options.xAxisTitle || xColumn }
           }
         }
       }
@@ -851,17 +765,17 @@ class ChartService {
   }
 
   generatePieChart(data, options) {
+    const colorPalette = this.getColorPalette(options.colorScheme);
     const { labelColumn, valueColumn } = options;
     const groupedData = this.groupData(data, labelColumn, valueColumn);
-    
     return {
       type: 'pie',
       data: {
         labels: Object.keys(groupedData),
         datasets: [{
           data: Object.values(groupedData),
-          backgroundColor: this.colorPalettes.primary,
-          borderColor: this.colorPalettes.border,
+          backgroundColor: colorPalette.primary,
+          borderColor: colorPalette.border,
           borderWidth: 1
         }]
       },
@@ -871,29 +785,27 @@ class ChartService {
         plugins: {
           title: {
             display: true,
-            text: `${labelColumn} 分布圓餅圖`,
+            text: options.title || `${labelColumn} 分布圓餅圖`,
             font: { size: 16 }
           },
-          legend: {
-            position: 'bottom'
-          }
+          legend: { position: 'bottom' }
         }
       }
     };
   }
 
   generateDoughnutChart(data, options) {
+    const colorPalette = this.getColorPalette(options.colorScheme);
     const { labelColumn, valueColumn } = options;
     const groupedData = this.groupData(data, labelColumn, valueColumn);
-    
     return {
       type: 'doughnut',
       data: {
         labels: Object.keys(groupedData),
         datasets: [{
           data: Object.values(groupedData),
-          backgroundColor: this.colorPalettes.primary,
-          borderColor: this.colorPalettes.border,
+          backgroundColor: colorPalette.primary,
+          borderColor: colorPalette.border,
           borderWidth: 2
         }]
       },
@@ -903,12 +815,10 @@ class ChartService {
         plugins: {
           title: {
             display: true,
-            text: `${labelColumn} 甜甜圈圖`,
+            text: options.title || `${labelColumn} 甜甜圈圖`,
             font: { size: 16 }
           },
-          legend: {
-            position: 'bottom'
-          }
+          legend: { position: 'bottom' }
         }
       }
     };
