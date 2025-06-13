@@ -934,6 +934,7 @@ function App() {
   };
 
   const handleCustomGenerate = async (config) => {
+    console.log('🎨 發送的顏色主題:', config.colorScheme);
     if (!analysisResult) return;
 
     setLoading(true);

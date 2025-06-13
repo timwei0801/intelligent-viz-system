@@ -52,6 +52,9 @@ import {
   Assessment as AssessmentIcon
 } from '@mui/icons-material';
 
+// ⭐ 導入統計學配置
+import { getStatisticalChartConfig } from './utils/chartStatistics';
+
 // 資料預覽表格組件
 export const DataPreviewTable = ({ data, analysis, onColumnSelect, selectedColumns = [] }) => {
   const [page, setPage] = useState(0);
@@ -123,149 +126,83 @@ export const DataPreviewTable = ({ data, analysis, onColumnSelect, selectedColum
   };
 
   return (
-    <Paper sx={{ p: 3 }}>
-      {/* 資料總覽 */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <TableChartIcon /> 資料預覽
-        </Typography>
-        <Box display="flex" alignItems="center" gap={2}>
-          <Badge badgeContent={data.length} color="primary">
-            <Typography variant="body2" color="text.secondary">
-              總筆數
-            </Typography>
-          </Badge>
-          <Badge badgeContent={columns.length} color="secondary">
-            <Typography variant="body2" color="text.secondary">
-              欄位數
-            </Typography>
-          </Badge>
-          <Tooltip title="展開統計資訊">
-            <IconButton 
-              onClick={() => setExpandedStats(!expandedStats)}
-              size="small"
-            >
-              <AssessmentIcon />
-            </IconButton>
-          </Tooltip>
+    <Paper sx={{ width: '100%', mb: 2 }}>
+      {/* 資料統計摘要 */}
+      <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TableChartIcon />
+            資料預覽 ({data.length} 筆，{columns.length} 欄)
+          </Typography>
+          <Button
+            size="small"
+            onClick={() => setExpandedStats(!expandedStats)}
+            endIcon={<ExpandMoreIcon sx={{ transform: expandedStats ? 'rotate(180deg)' : 'none' }} />}
+          >
+            {expandedStats ? '收起' : '展開'} 統計
+          </Button>
         </Box>
-      </Box>
-
-      {/* 統計資訊摺疊區域 */}
-      <Collapse in={expandedStats}>
-        <Card sx={{ mb: 2, bgcolor: 'grey.50' }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              📊 資料統計摘要
-            </Typography>
+        
+        <Collapse in={expandedStats}>
+          <Box sx={{ mt: 2 }}>
             <Grid container spacing={2}>
-              <Grid item xs={12} md={4}>
-                <Typography variant="body2" color="text.secondary">資料類型分佈</Typography>
-                <Box sx={{ mt: 1 }}>
-                  <Chip 
-                    label={`數值型: ${analysis?.summary?.numericalColumns || 0}`} 
-                    color="primary" 
-                    size="small" 
-                    sx={{ mr: 1, mb: 1 }}
-                  />
-                  <Chip 
-                    label={`類別型: ${analysis?.summary?.categoricalColumns || 0}`} 
-                    color="secondary" 
-                    size="small" 
-                    sx={{ mr: 1, mb: 1 }}
-                  />
-                  <Chip 
-                    label={`時間型: ${analysis?.summary?.temporalColumns || 0}`} 
-                    color="success" 
-                    size="small" 
-                    sx={{ mr: 1, mb: 1 }}
-                  />
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Typography variant="body2" color="text.secondary">資料品質</Typography>
-                <Box sx={{ mt: 1 }}>
-                  <Typography variant="body2">
-                    完整度: {Math.round((1 - (data.filter(row => 
-                      Object.values(row).some(val => val === null || val === undefined || val === '')
-                    ).length / data.length)) * 100)}%
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Typography variant="body2" color="text.secondary">已選擇欄位</Typography>
-                <Box sx={{ mt: 1 }}>
-                  <Typography variant="body2">
-                    {selectedColumns.length} / {columns.length} 個欄位
-                  </Typography>
-                </Box>
-              </Grid>
+              {columns.map(column => {
+                const type = getColumnType(column);
+                const stats = getColumnStats(column);
+                return (
+                  <Grid item xs={12} sm={6} md={4} key={column}>
+                    <Card variant="outlined" sx={{ p: 1 }}>
+                      <Typography variant="subtitle2" noWrap>{column}</Typography>
+                      <Chip size="small" color={getColumnColor(type)} label={type} />
+                      {stats.uniqueValues && (
+                        <Typography variant="caption" color="text.secondary">
+                          唯一值: {stats.uniqueValues}
+                        </Typography>
+                      )}
+                    </Card>
+                  </Grid>
+                );
+              })}
             </Grid>
-          </CardContent>
-        </Card>
-      </Collapse>
-      
-      {/* 欄位選擇器 */}
-      <Box mb={2}>
-        <Typography variant="body2" gutterBottom>
-          🏷️ 點擊選擇欄位 (已選: {selectedColumns.length})
-        </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap">
-          {columns.map(col => {
-            const stats = getColumnStats(col);
-            const type = getColumnType(col);
-            return (
-              <Tooltip 
-                key={col} 
-                title={
-                  <Box>
-                    <Typography variant="body2">類型: {type}</Typography>
-                    {stats.count && <Typography variant="body2">資料數: {stats.count}</Typography>}
-                    {stats.uniqueCount && <Typography variant="body2">唯一值: {stats.uniqueCount}</Typography>}
-                    {stats.mean && <Typography variant="body2">平均: {stats.mean.toFixed(2)}</Typography>}
-                  </Box>
-                }
-              >
-                <Chip
-                  label={col}
-                  size="small"
-                  color={getColumnColor(type)}
-                  variant={selectedColumns.includes(col) ? "filled" : "outlined"}
-                  onClick={() => onColumnSelect && onColumnSelect(col)}
-                  clickable
-                  sx={{ mb: 1 }}
-                />
-              </Tooltip>
-            );
-          })}
-        </Stack>
+          </Box>
+        </Collapse>
       </Box>
 
-      {/* 資料表格 */}
-      <TableContainer sx={{ maxHeight: 400 }}>
+      <TableContainer sx={{ maxHeight: 440 }}>
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
               {columns.map(column => (
-                <TableCell 
-                  key={column}
-                  sx={{ 
-                    cursor: 'pointer',
-                    backgroundColor: selectedColumns.includes(column) ? 'action.selected' : 'inherit',
-                    fontWeight: selectedColumns.includes(column) ? 'bold' : 'normal'
-                  }}
-                  onClick={() => handleSort(column)}
-                >
-                  <Box display="flex" alignItems="center" justifyContent="space-between">
-                    <Box>
+                <TableCell key={column} sx={{ minWidth: 120 }}>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Button
+                      size="small"
+                      onClick={() => handleSort(column)}
+                      sx={{ textTransform: 'none', justifyContent: 'flex-start', minWidth: 0 }}
+                    >
                       <Typography variant="subtitle2" noWrap>
                         {column}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {getColumnType(column)}
-                      </Typography>
-                    </Box>
-                    <SortIcon sx={{ fontSize: 16, opacity: sortColumn === column ? 1 : 0.3 }} />
+                      <SortIcon fontSize="small" 
+                        sx={{ opacity: sortColumn === column ? 1 : 0.3 }} />
+                    </Button>
+                  </Box>
+                  <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                    <Chip 
+                      size="small" 
+                      color={getColumnColor(getColumnType(column))} 
+                      label={getColumnType(column)} 
+                    />
+                    {onColumnSelect && (
+                      <IconButton
+                        size="small"
+                        onClick={() => onColumnSelect(column)}
+                        color={selectedColumns.includes(column) ? 'primary' : 'default'}
+                      >
+                        <AddIcon fontSize="small" 
+                          sx={{ opacity: selectedColumns.includes(column) ? 1 : 0.3 }} />
+                      </IconButton>
+                    )}
                   </Box>
                 </TableCell>
               ))}
@@ -361,13 +298,33 @@ export const ChartCustomizationDialog = ({
     analysis?.types?.[col] === 'temporal'
   ) : [];
 
-  // 根據圖表類型推薦預設設定
+  // ⭐ 使用統計學配置邏輯
   useEffect(() => {
     if (chartType && columns.length > 0) {
-      const defaults = getDefaultConfig(chartType, numericalColumns, categoricalColumns, temporalColumns);
-      setConfig(prev => ({ ...prev, ...defaults }));
+      console.log('🔬 使用統計學配置邏輯');
+      
+      // 使用統計學原理的配置
+      const statisticalConfig = getStatisticalChartConfig(
+        chartType, 
+        numericalColumns, 
+        categoricalColumns, 
+        temporalColumns, 
+        columns
+      );
+
+      console.log('📊 統計學推薦配置:', statisticalConfig);
+
+      // 將統計學配置應用到狀態
+      setConfig(prev => ({ 
+        ...prev, 
+        ...statisticalConfig,
+        // 保留使用者自訂的設定
+        title: statisticalConfig.title || prev.title,
+        xAxisTitle: prev.xAxisTitle || statisticalConfig.xColumn,
+        yAxisTitle: prev.yAxisTitle || statisticalConfig.yColumn || statisticalConfig.valueColumn
+      }));
     }
-  }, [chartType, columns.length]);
+  }, [chartType, columns.length, numericalColumns.length, categoricalColumns.length, temporalColumns.length]);
 
   // 安全檢查
   if (!hasValidData) {
@@ -383,44 +340,8 @@ export const ChartCustomizationDialog = ({
     );
   }
 
-  const getDefaultConfig = (type, numeric, categorical, temporal) => {
-    switch (type.toLowerCase()) {
-      case 'bar':
-        return {
-          xColumn: categorical[0] || columns[0],
-          yColumn: numeric[0] || columns[1],
-          groupBy: categorical[1] || '',
-          title: `${categorical[0] || 'X軸'} vs ${numeric[0] || 'Y軸'}`
-        };
-      case 'line':
-      case 'area':
-        return {
-          xColumn: temporal[0] || columns[0],
-          yColumn: numeric[0] || columns[1],
-          title: `${numeric[0] || 'Y軸'} 趨勢圖`
-        };
-      case 'scatter':
-      case 'bubble':
-        return {
-          xColumn: numeric[0] || columns[0],
-          yColumn: numeric[1] || columns[1],
-          sizeBy: type === 'bubble' ? numeric[2] || '' : '',
-          colorBy: categorical[0] || '',
-          title: `${numeric[0] || 'X軸'} vs ${numeric[1] || 'Y軸'} 關係圖`
-        };
-      case 'pie':
-      case 'doughnut':
-        return {
-          xColumn: categorical[0] || columns[0],
-          yColumn: numeric[0] || columns[1],
-          title: `${categorical[0] || '類別'} 分布圖`
-        };
-      default:
-        return {};
-    }
-  };
-
   const handleGenerate = () => {
+    console.log('🚀 生成圖表，最終配置:', config);
     onGenerate(config);
     onClose();
   };
@@ -456,13 +377,27 @@ export const ChartCustomizationDialog = ({
 
   const renderDataTab = () => (
     <Box sx={{ p: 2 }}>
+      {/* 統計學建議提示 */}
+      {config.description && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            <strong>統計學建議：</strong>{config.description}
+          </Typography>
+          {config.statisticalPurpose && (
+            <Typography variant="caption" color="text.secondary">
+              用途：{config.statisticalPurpose}
+            </Typography>
+          )}
+        </Alert>
+      )}
+
       <Grid container spacing={3}>
         {/* X軸選擇 */}
         <Grid item xs={12} md={6}>
           <FormControl fullWidth sx={selectStyles}>
             <InputLabel>X軸 (主要維度)</InputLabel>
             <Select
-              value={config.xColumn}
+              value={config.xColumn || ''}
               label="X軸 (主要維度)"
               onChange={(e) => setConfig(prev => ({ ...prev, xColumn: e.target.value }))}
             >
@@ -480,9 +415,13 @@ export const ChartCustomizationDialog = ({
           <FormControl fullWidth sx={selectStyles}>
             <InputLabel>Y軸 (數值)</InputLabel>
             <Select
-              value={config.yColumn}
+              value={config.yColumn || config.valueColumn || ''}
               label="Y軸 (數值)"
-              onChange={(e) => setConfig(prev => ({ ...prev, yColumn: e.target.value }))}
+              onChange={(e) => setConfig(prev => ({ 
+                ...prev, 
+                yColumn: e.target.value,
+                valueColumn: e.target.value  // 同時更新 valueColumn
+              }))}
             >
               {columns.map(col => (
                 <MenuItem key={col} value={col}>
@@ -493,49 +432,42 @@ export const ChartCustomizationDialog = ({
           </FormControl>
         </Grid>
 
-        {/* 分組依據 */}
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth sx={selectStyles}>
-            <InputLabel>分組依據 (可選)</InputLabel>
-            <Select
-              value={config.groupBy}
-              label="分組依據 (可選)"
-              onChange={(e) => setConfig(prev => ({ ...prev, groupBy: e.target.value }))}
-            >
-              <MenuItem value="">無分組</MenuItem>
-              {categoricalColumns.map(col => (
-                <MenuItem key={col} value={col}>{col}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Grid>
+        {/* 分組依據（適用於堆疊圖、分組圖等） */}
+        {['stackedbar', 'groupedbar', 'stackedarea', 'mixedchart'].includes(chartType) && (
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth sx={selectStyles}>
+              <InputLabel>分組依據</InputLabel>
+              <Select
+                value={config.groupBy || config.groupByColumn || ''}
+                label="分組依據"
+                onChange={(e) => setConfig(prev => ({ 
+                  ...prev, 
+                  groupBy: e.target.value,
+                  groupByColumn: e.target.value  // 同時更新 groupByColumn
+                }))}
+              >
+                <MenuItem value="">無分組</MenuItem>
+                {categoricalColumns.map(col => (
+                  <MenuItem key={col} value={col}>{col}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        )}
 
-        {/* 顏色分類 */}
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth sx={selectStyles}>
-            <InputLabel>顏色分類 (可選)</InputLabel>
-            <Select
-              value={config.colorBy}
-              label="顏色分類 (可選)"
-              onChange={(e) => setConfig(prev => ({ ...prev, colorBy: e.target.value }))}
-            >
-              <MenuItem value="">預設顏色</MenuItem>
-              {categoricalColumns.map(col => (
-                <MenuItem key={col} value={col}>{col}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Grid>
-
-        {/* 氣泡大小 (僅氣泡圖) */}
+        {/* 氣泡大小（僅氣泡圖） */}
         {chartType === 'bubble' && (
           <Grid item xs={12} md={6}>
             <FormControl fullWidth sx={selectStyles}>
               <InputLabel>氣泡大小</InputLabel>
               <Select
-                value={config.sizeBy}
+                value={config.sizeBy || config.sizeColumn || ''}
                 label="氣泡大小"
-                onChange={(e) => setConfig(prev => ({ ...prev, sizeBy: e.target.value }))}
+                onChange={(e) => setConfig(prev => ({ 
+                  ...prev, 
+                  sizeBy: e.target.value,
+                  sizeColumn: e.target.value
+                }))}
               >
                 {numericalColumns.map(col => (
                   <MenuItem key={col} value={col}>{col}</MenuItem>
@@ -545,122 +477,79 @@ export const ChartCustomizationDialog = ({
           </Grid>
         )}
 
-        {/* 聚合方式 */}
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth sx={selectStyles}>
-            <InputLabel>聚合方式</InputLabel>
-            <Select
-              value={config.aggregation}
-              label="聚合方式"
-              onChange={(e) => setConfig(prev => ({ ...prev, aggregation: e.target.value }))}
-            >
-              <MenuItem value="sum">總和</MenuItem>
-              <MenuItem value="avg">平均</MenuItem>
-              <MenuItem value="count">計數</MenuItem>
-              <MenuItem value="min">最小值</MenuItem>
-              <MenuItem value="max">最大值</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
+        {/* 混合圖表的特殊設定 */}
+        {chartType === 'mixedchart' && (
+          <>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth sx={selectStyles}>
+                <InputLabel>柱狀圖數值</InputLabel>
+                <Select
+                  value={config.barColumn || ''}
+                  label="柱狀圖數值"
+                  onChange={(e) => setConfig(prev => ({ ...prev, barColumn: e.target.value }))}
+                >
+                  {numericalColumns.map(col => (
+                    <MenuItem key={col} value={col}>{col}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth sx={selectStyles}>
+                <InputLabel>線圖數值</InputLabel>
+                <Select
+                  value={config.lineColumn || ''}
+                  label="線圖數值"
+                  onChange={(e) => setConfig(prev => ({ ...prev, lineColumn: e.target.value }))}
+                >
+                  {numericalColumns.map(col => (
+                    <MenuItem key={col} value={col}>{col}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </>
+        )}
+
+        {/* 圓餅圖和甜甜圈圖的標籤設定 */}
+        {['pie', 'doughnut'].includes(chartType) && (
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth sx={selectStyles}>
+              <InputLabel>標籤欄位</InputLabel>
+              <Select
+                value={config.labelColumn || config.xColumn || ''}
+                label="標籤欄位"
+                onChange={(e) => setConfig(prev => ({ 
+                  ...prev, 
+                  labelColumn: e.target.value,
+                  xColumn: e.target.value
+                }))}
+              >
+                {categoricalColumns.map(col => (
+                  <MenuItem key={col} value={col}>{col}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        )}
       </Grid>
     </Box>
   );
 
   const renderFilterTab = () => (
     <Box sx={{ p: 2 }}>
+      <Typography variant="h6" gutterBottom>篩選條件</Typography>
       <Grid container spacing={3}>
-        {/* 數值範圍篩選 */}
+        {/* 資料範圍限制 */}
         <Grid item xs={12}>
-          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TrendingUpIcon /> 數值範圍篩選
-          </Typography>
-          {numericalColumns.slice(0, 3).map(col => {
-            const stats = analysis?.stats?.[col] || {};
-            return (
-              <Box key={col} sx={{ mb: 2 }}>
-                <Typography variant="body2" gutterBottom>
-                  {col} {stats.min !== undefined && `(${stats.min} - ${stats.max})`}
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
-                    <TextField
-                      label="最小值"
-                      type="number"
-                      size="small"
-                      fullWidth
-                      placeholder={stats.min?.toString()}
-                    />
-                  </Grid>
-                  <Grid item xs={6}>
-                    <TextField
-                      label="最大值"
-                      type="number"
-                      size="small"
-                      fullWidth
-                      placeholder={stats.max?.toString()}
-                    />
-                  </Grid>
-                </Grid>
-                {stats.min !== undefined && (
-                  <Box sx={{ mt: 1, px: 1 }}>
-                    <Slider
-                      defaultValue={[stats.min, stats.max]}
-                      min={stats.min}
-                      max={stats.max}
-                      valueLabelDisplay="auto"
-                      size="small"
-                    />
-                  </Box>
-                )}
-              </Box>
-            );
-          })}
-        </Grid>
-
-        {/* 類別篩選 */}
-        <Grid item xs={12}>
-          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <FilterIcon /> 類別篩選
-          </Typography>
-          {categoricalColumns.slice(0, 3).map(col => {
-            const uniqueValues = [...new Set(data.map(row => row[col]).filter(Boolean))].slice(0, 20);
-            return (
-              <Box key={col} sx={{ mb: 2 }}>
-                <Autocomplete
-                  multiple
-                  options={uniqueValues}
-                  renderInput={(params) => (
-                    <TextField {...params} label={col} size="small" />
-                  )}
-                  renderTags={(value, getTagProps) =>
-                    value.map((option, index) => (
-                      <Chip
-                        variant="outlined"
-                        label={option}
-                        size="small"
-                        {...getTagProps({ index })}
-                        key={index}
-                      />
-                    ))
-                  }
-                />
-              </Box>
-            );
-          })}
-        </Grid>
-
-        {/* 排序和限制 */}
-        <Grid item xs={12}>
-          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <SortIcon /> 排序與限制
-          </Typography>
+          <Typography variant="subtitle2" gutterBottom>資料範圍</Typography>
           <Grid container spacing={2}>
             <Grid item xs={4}>
-              <FormControl fullWidth size="small" sx={selectStyles}>
-                <InputLabel>排序欄位</InputLabel>
+              <FormControl fullWidth sx={selectStyles}>
+                <InputLabel>排序依據</InputLabel>
                 <Select
                   value={config.sortBy}
-                  label="排序欄位"
+                  label="排序依據"
                   onChange={(e) => setConfig(prev => ({ ...prev, sortBy: e.target.value }))}
                 >
                   <MenuItem value="">不排序</MenuItem>
@@ -671,11 +560,11 @@ export const ChartCustomizationDialog = ({
               </FormControl>
             </Grid>
             <Grid item xs={4}>
-              <FormControl fullWidth size="small" sx={selectStyles}>
-                <InputLabel>排序方向</InputLabel>
+              <FormControl fullWidth sx={selectStyles}>
+                <InputLabel>排序方式</InputLabel>
                 <Select
                   value={config.sortOrder}
-                  label="排序方向"
+                  label="排序方式"
                   onChange={(e) => setConfig(prev => ({ ...prev, sortOrder: e.target.value }))}
                 >
                   <MenuItem value="asc">升序</MenuItem>
@@ -782,6 +671,9 @@ export const ChartCustomizationDialog = ({
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <SettingsIcon />
         🎨 自訂 {chartType?.toUpperCase()} 圖表
+        {config.statisticalPurpose && (
+          <Chip size="small" label={config.statisticalPurpose} color="primary" />
+        )}
       </DialogTitle>
       
       <DialogContent sx={{ p: 0 }}>
@@ -801,7 +693,7 @@ export const ChartCustomizationDialog = ({
         <Button 
           variant="contained" 
           onClick={handleGenerate}
-          disabled={!config.xColumn || !config.yColumn}
+          disabled={!config.xColumn && !config.valueColumn}
           startIcon={<AddIcon />}
         >
           生成圖表

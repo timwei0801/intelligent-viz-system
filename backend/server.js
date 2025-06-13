@@ -212,6 +212,7 @@ app.get('/health', (req, res) => {
 
 // 生成圖表配置
 app.post('/api/generate-chart', async (req, res) => {
+  console.log('🎨 收到的顏色主題:', req.body.options?.colorScheme);
   try {
     const { data, chartType, options, dataAnalysis } = req.body;
     
