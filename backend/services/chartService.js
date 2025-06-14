@@ -247,6 +247,30 @@ class ChartService {
           return this.generateStepLineChart(data, options);
         case 'mixedchart':
           return this.generateMixedChart(data, options);
+
+        // 統計圖表
+        case 'histogram':
+          return this.generateHistogram(data, options);
+        case 'boxplot':
+          return this.generateBoxPlot(data, options);
+        case 'violin':
+          return this.generateViolinPlot(data, options);
+        case 'heatmap':
+          return this.generateHeatmap(data, options);
+
+        // 商業智慧圖表
+        case 'gauge':
+          return this.generateGaugeChart(data, options);
+        case 'bullet':
+          return this.generateBulletChart(data, options);
+        case 'kpicard':
+          return this.generateKPICard(data, options);
+        case 'funnel':
+          return this.generateFunnelChart(data, options);
+        case 'sankey':
+          return this.generateSankeyChart(data, options);
+        case 'treemap':
+          return this.generateTreemapChart(data, options);
           
         // 其他圖表
         case 'waterfall':
@@ -1219,6 +1243,554 @@ class ChartService {
       }
     };
   }
+
+  generateHistogram(data, options) {
+    const { column, bins = 20 } = options;
+    const numericColumns = Object.keys(data[0]).filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    
+    const targetColumn = column || numericColumns[0];
+    
+    if (!targetColumn) {
+      throw new Error('直方圖需要至少一個數值型欄位');
+    }
+    
+    const values = data.map(item => parseFloat(item[targetColumn])).filter(val => !isNaN(val));
+    
+    return {
+      type: 'plotly',
+      data: [{
+        x: values,
+        type: 'histogram',
+        nbinsx: bins,
+        marker: {
+          color: 'rgba(54, 162, 235, 0.7)',
+          line: {
+            color: 'rgba(54, 162, 235, 1)',
+            width: 1
+          }
+        }
+      }],
+      layout: {
+        title: `${targetColumn} 分布直方圖`,
+        xaxis: {
+          title: targetColumn
+        },
+        yaxis: {
+          title: '頻率'
+        },
+        bargap: 0.05
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false
+      }
+    };
+  }
+
+  generateBoxPlot(data, options) {
+    const { column } = options;
+    const numericColumns = Object.keys(data[0]).filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    
+    const columnsToPlot = column ? [column] : numericColumns.slice(0, 5);
+    
+    if (columnsToPlot.length === 0) {
+      throw new Error('箱型圖需要至少一個數值型欄位');
+    }
+    
+    const plotData = columnsToPlot.map(col => {
+      const values = data.map(item => parseFloat(item[col])).filter(val => !isNaN(val));
+      return {
+        y: values,
+        type: 'box',
+        name: col,
+        boxpoints: 'outliers',
+        jitter: 0.3,
+        pointpos: -1.8
+      };
+    });
+    
+    return {
+      type: 'plotly',
+      data: plotData,
+      layout: {
+        title: columnsToPlot.length === 1 ? `${columnsToPlot[0]} 箱型圖` : '多變數箱型圖',
+        yaxis: {
+          title: '數值',
+          zeroline: false
+        },
+        xaxis: {
+          title: '變數'
+        },
+        showlegend: columnsToPlot.length > 1
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false
+      }
+    };
+  }
+
+  // 如果缺少 generateViolinPlot 函數，添加這個：
+  generateViolinPlot(data, options) {
+    const { column } = options;
+    const numericColumns = Object.keys(data[0]).filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    
+    const targetColumn = column || numericColumns[0];
+    
+    if (!targetColumn) {
+      throw new Error('小提琴圖需要至少一個數值型欄位');
+    }
+    
+    const values = data.map(item => parseFloat(item[targetColumn])).filter(val => !isNaN(val));
+    
+    if (values.length < 5) {
+      throw new Error('小提琴圖需要至少5個有效數據點');
+    }
+    
+    return {
+      type: 'plotly',
+      data: [{
+        y: values,
+        type: 'violin',
+        name: targetColumn,
+        box: { visible: true },
+        meanline: { visible: true },
+        points: 'outliers'
+      }],
+      layout: {
+        title: `${targetColumn} 密度分布圖`,
+        yaxis: {
+          title: targetColumn,
+          zeroline: false
+        },
+        showlegend: false
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false
+      }
+    };
+  }
+
+  // 如果缺少 generateHeatmap 函數，添加這個：
+  generateHeatmap(data, options) {
+    const numericColumns = Object.keys(data[0]).filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    
+    if (numericColumns.length < 2) {
+      throw new Error('熱力圖需要至少兩個數值型欄位');
+    }
+    
+    // 計算相關矩陣
+    const correlationMatrix = [];
+    const labels = numericColumns;
+    
+    for (let i = 0; i < numericColumns.length; i++) {
+      correlationMatrix[i] = [];
+      for (let j = 0; j < numericColumns.length; j++) {
+        const col1Values = data.map(item => parseFloat(item[numericColumns[i]])).filter(val => !isNaN(val));
+        const col2Values = data.map(item => parseFloat(item[numericColumns[j]])).filter(val => !isNaN(val));
+        correlationMatrix[i][j] = this.calculateCorrelation(col1Values, col2Values);
+      }
+    }
+    
+    return {
+      type: 'plotly',
+      data: [{
+        z: correlationMatrix,
+        x: labels,
+        y: labels,
+        type: 'heatmap',
+        colorscale: 'RdBu',
+        showscale: true
+      }],
+      layout: {
+        title: '相關性熱力圖',
+        xaxis: { title: '變數' },
+        yaxis: { title: '變數' }
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false
+      }
+    };
+  }
+
+  // 計算相關係數的輔助函數
+  calculateCorrelation(x, y) {
+    const n = Math.min(x.length, y.length);
+    if (n === 0) return 0;
+    
+    const sumX = x.slice(0, n).reduce((a, b) => a + b, 0);
+    const sumY = y.slice(0, n).reduce((a, b) => a + b, 0);
+    const sumXY = x.slice(0, n).reduce((sum, xi, i) => sum + xi * y[i], 0);
+    const sumX2 = x.slice(0, n).reduce((sum, xi) => sum + xi * xi, 0);
+    const sumY2 = y.slice(0, n).reduce((sum, yi) => sum + yi * yi, 0);
+    
+    const numerator = n * sumXY - sumX * sumY;
+    const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+    
+    return denominator === 0 ? 0 : numerator / denominator;
+  }
+
+  generateGaugeChart(data, options) {
+    const { valueColumn, target, thresholds, unit, title } = options;
+    
+    const numericColumns = Object.keys(data[0]).filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    
+    const targetColumn = valueColumn || numericColumns[0];
+    if (!targetColumn) {
+      throw new Error('儀表板圖需要至少一個數值欄位');
+    }
+    
+    const currentValue = data.length > 0 ? (parseFloat(data[0][targetColumn]) || 0) : 0;
+    const allValues = data.map(item => parseFloat(item[targetColumn]) || 0);
+    const maxValue = Math.max(...allValues);
+    const targetValue = target || maxValue * 1.2;
+    
+    return {
+      type: 'gauge',
+      data: {
+        currentValue: currentValue,
+        targetValue: targetValue,
+        valueColumn: targetColumn,
+        // 確保包含前端需要的所有字段
+        minValue: 0,
+        maxValue: targetValue,
+        value: currentValue,  // 有些組件可能期望 'value' 而不是 'currentValue'
+        target: targetValue   // 有些組件可能期望 'target' 而不是 'targetValue'
+      },
+      options: {
+        title: title || `${targetColumn} 指標監控`,
+        valueColumn: targetColumn,
+        minValue: 0,
+        maxValue: targetValue,
+        thresholds: thresholds || [targetValue * 0.3, targetValue * 0.7],
+        unit: unit || ''
+      }
+    };
+  }
+
+  // 如果 generateBulletChart 不存在或有問題，請添加/替換為：
+  generateBulletChart(data, options) {
+    const { labelColumn, valueColumn, targetColumn } = options;
+    const columns = Object.keys(data[0]);
+    const numericColumns = columns.filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    const categoricalColumns = columns.filter(col => 
+      isNaN(parseFloat(data[0][col]))
+    );
+    
+    const finalLabelColumn = labelColumn || categoricalColumns[0] || columns[0];
+    const finalValueColumn = valueColumn || numericColumns[0];
+    const finalTargetColumn = targetColumn || numericColumns[1] || finalValueColumn;
+    
+    if (!finalValueColumn) {
+      throw new Error('子彈圖需要至少一個數值欄位');
+    }
+    
+    // 先聚合數據，避免重複的類別
+    const aggregatedData = {};
+    
+    data.forEach(item => {
+      const label = String(item[finalLabelColumn] || '未分類');
+      const actualValue = parseFloat(item[finalValueColumn]) || 0;
+      const targetValue = parseFloat(item[finalTargetColumn]) || 0;
+      
+      if (!aggregatedData[label]) {
+        aggregatedData[label] = {
+          label: label,
+          actualSum: 0,
+          targetSum: 0,
+          count: 0
+        };
+      }
+      
+      aggregatedData[label].actualSum += actualValue;
+      aggregatedData[label].targetSum += targetValue;
+      aggregatedData[label].count += 1;
+    });
+    
+    // 轉換為 metrics 格式，取前5個類別
+    const metrics = Object.values(aggregatedData)
+      .slice(0, 5)
+      .map((item, index) => {
+        const actualValue = item.actualSum;
+        const targetValue = item.targetSum || actualValue * 1.2; // 如果沒有目標值，設為實際值的120%
+        
+        // 生成範圍值（差、一般、好）
+        const maxValue = Math.max(actualValue, targetValue);
+        const ranges = [
+          maxValue * 0.6,  // 差
+          maxValue * 0.8,  // 一般  
+          maxValue * 1.2   // 好
+        ];
+        
+        return {
+          title: item.label,
+          subtitle: `目標: ${Math.round(targetValue)}`,
+          ranges: ranges,
+          measures: [actualValue],
+          markers: [targetValue],
+          actual: actualValue,
+          target: targetValue
+        };
+      });
+    
+    return {
+      type: 'bullet',
+      data: { 
+        metrics: metrics
+      },
+      options: {
+        title: options.title || `${finalLabelColumn} 目標達成分析`,
+        labelColumn: finalLabelColumn,
+        valueColumn: finalValueColumn,
+        targetColumn: finalTargetColumn,
+        showQualitativeRanges: options.showQualitativeRanges !== false,
+        colorScheme: options.colorScheme || 'default'
+      }
+    };
+  }
+
+  // 如果 generateKPICard 不存在或有問題，請添加/替換為：
+  generateKPICard(data, options) {
+    const { kpiColumn } = options;
+    const numericColumns = Object.keys(data[0]).filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    
+    const targetKPIColumn = kpiColumn || numericColumns[0];
+    if (!targetKPIColumn) {
+      throw new Error('KPI卡片需要至少一個數值欄位');
+    }
+    
+    const currentValue = data.length > 0 ? (parseFloat(data[0][targetKPIColumn]) || 0) : 0;
+    const previousValue = data.length > 1 ? (parseFloat(data[1][targetKPIColumn]) || 0) : currentValue * 0.9;
+    const changePercent = previousValue !== 0 ? ((currentValue - previousValue) / previousValue) * 100 : 0;
+    
+    // 生成多個 KPI 指標（如果有多個數值欄位）
+    const kpis = numericColumns.slice(0, 4).map((column, index) => {
+      const currentVal = data.length > 0 ? (parseFloat(data[0][column]) || 0) : 0;
+      const previousVal = data.length > 1 ? (parseFloat(data[1][column]) || 0) : currentVal * 0.9;
+      const change = previousVal !== 0 ? ((currentVal - previousVal) / previousVal) * 100 : 0;
+      
+      return {
+        title: column,
+        value: currentVal,
+        unit: options.unit || '',
+        trend: change,
+        previousValue: previousVal,
+        icon: index === 0 ? 'revenue' : index === 1 ? 'users' : index === 2 ? 'sales' : 'analytics',
+        format: options.format || 'number'
+      };
+    });
+    
+    return {
+      type: 'kpicard',
+      data: { 
+        kpis: kpis  // 前端期望的格式！
+      },
+      options: {
+        title: options.title || `${targetKPIColumn} KPI`,
+        kpiColumn: targetKPIColumn,
+        format: options.format || 'number',
+        showTrend: options.showTrend !== false,
+        comparisonPeriod: options.comparisonPeriod || '上期',
+        unit: options.unit || '',
+        precision: options.precision || 0
+      }
+    };
+  }
+
+
+  // 如果 generateFunnelChart 不存在或有問題，請添加/替換為：
+  generateFunnelChart(data, options) {
+    const { labelColumn, valueColumn } = options;
+    const columns = Object.keys(data[0]);
+    const numericColumns = columns.filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    const categoricalColumns = columns.filter(col => 
+      isNaN(parseFloat(data[0][col]))
+    );
+    
+    const finalLabelColumn = labelColumn || categoricalColumns[0] || columns[0];
+    const finalValueColumn = valueColumn || numericColumns[0];
+    
+    if (!finalLabelColumn || !finalValueColumn) {
+      throw new Error('漏斗圖需要標籤欄位和數值欄位');
+    }
+    
+    // 聚合數據
+    const aggregated = data.reduce((acc, item) => {
+      const label = String(item[finalLabelColumn] || '未分類');
+      const value = parseFloat(item[finalValueColumn]) || 0;
+      acc[label] = (acc[label] || 0) + value;
+      return acc;
+    }, {});
+    
+    const processedData = Object.entries(aggregated).map(([label, value]) => ({
+      [finalLabelColumn]: label,
+      [finalValueColumn]: value
+    }));
+    
+    return {
+      type: 'funnel',
+      data: { data: processedData },
+      options: {
+        title: options.title || `${finalLabelColumn} 轉換漏斗`,
+        labelColumn: finalLabelColumn,
+        valueColumn: finalValueColumn,
+        showConversionRates: options.showConversionRates !== false,
+        sortOrder: options.sortOrder || 'desc'
+      }
+    };
+  }
+
+  // 如果 generateSankeyChart 不存在或有問題，請添加/替換為：
+  generateSankeyChart(data, options) {
+    const { sourceColumn, targetColumn, valueColumn } = options;
+    const columns = Object.keys(data[0]);
+    const numericColumns = columns.filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    const categoricalColumns = columns.filter(col => 
+      isNaN(parseFloat(data[0][col]))
+    );
+    
+    const finalSourceColumn = sourceColumn || categoricalColumns[0];
+    const finalTargetColumn = targetColumn || categoricalColumns[1];
+    const finalValueColumn = valueColumn || numericColumns[0];
+    
+    if (!finalSourceColumn || !finalTargetColumn || !finalValueColumn) {
+      throw new Error('桑基圖需要來源欄位、目標欄位和數值欄位');
+    }
+    
+    return {
+      type: 'sankey',
+      data: { data },
+      options: {
+        title: options.title || `${finalSourceColumn} → ${finalTargetColumn} 流向分析`,
+        sourceColumn: finalSourceColumn,
+        targetColumn: finalTargetColumn,
+        valueColumn: finalValueColumn,
+        nodeAlignment: options.nodeAlignment || 'justify',
+        linkOpacity: options.linkOpacity || 0.6
+      }
+    };
+  }
+
+  // 如果 generateTreemapChart 不存在或有問題，請添加/替換為：
+  generateTreemapChart(data, options) {
+    const { labelColumn, valueColumn, parentColumn } = options;
+    const columns = Object.keys(data[0]);
+    const numericColumns = columns.filter(col => 
+      !isNaN(parseFloat(data[0][col]))
+    );
+    const categoricalColumns = columns.filter(col => 
+      isNaN(parseFloat(data[0][col]))
+    );
+    
+    const finalLabelColumn = labelColumn || categoricalColumns[0];
+    const finalValueColumn = valueColumn || numericColumns[0];
+    const finalParentColumn = parentColumn || categoricalColumns[1];
+    
+    if (!finalLabelColumn || !finalValueColumn) {
+      throw new Error('樹狀圖需要標籤欄位和數值欄位');
+    }
+    
+    // 構建層次結構數據
+    let treeData;
+    
+    if (finalParentColumn && finalParentColumn !== finalLabelColumn) {
+      // 有父級欄位：建立兩層結構
+      const hierarchy = {};
+      
+      data.forEach(item => {
+        const parent = String(item[finalParentColumn] || '其他');
+        const child = String(item[finalLabelColumn] || '未分類');
+        const value = parseFloat(item[finalValueColumn]) || 0;
+        
+        if (!hierarchy[parent]) {
+          hierarchy[parent] = {
+            name: parent,
+            children: {},
+            value: 0
+          };
+        }
+        
+        if (!hierarchy[parent].children[child]) {
+          hierarchy[parent].children[child] = {
+            name: child,
+            value: 0
+          };
+        }
+        
+        hierarchy[parent].children[child].value += value;
+        hierarchy[parent].value += value;
+      });
+      
+      // 轉換為樹狀圖需要的格式
+      treeData = {
+        name: "root",
+        children: Object.values(hierarchy).map(parent => ({
+          name: parent.name,
+          value: parent.value,
+          children: Object.values(parent.children)
+        }))
+      };
+    } else {
+      // 沒有父級欄位：建立單層結構
+      const aggregated = {};
+      
+      data.forEach(item => {
+        const label = String(item[finalLabelColumn] || '未分類');
+        const value = parseFloat(item[finalValueColumn]) || 0;
+        
+        if (!aggregated[label]) {
+          aggregated[label] = 0;
+        }
+        aggregated[label] += value;
+      });
+      
+      treeData = {
+        name: "root",
+        children: Object.entries(aggregated).map(([name, value]) => ({
+          name: name,
+          value: value
+        }))
+      };
+    }
+    
+    return {
+      type: 'treemap',
+      data: { 
+        data: treeData  // 傳遞處理好的層次結構
+      },
+      options: {
+        title: options.title || `${finalLabelColumn} 組成分析`,
+        labelColumn: finalLabelColumn,
+        valueColumn: finalValueColumn,
+        parentColumn: finalParentColumn,
+        maxDepth: options.maxDepth || 3,
+        colorScale: options.colorScale || 'Viridis',
+        showLabels: options.showLabels !== false,
+        showValues: options.showValues !== false
+      }
+    };
+  }
+
 
   // 工具方法：聚合資料
   groupData(data, labelColumn, valueColumn) {

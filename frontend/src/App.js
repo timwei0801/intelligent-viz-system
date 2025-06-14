@@ -142,6 +142,73 @@ const CHART_COLORS = {
   ]
 };
 
+// 商業圖表數據生成函數
+function generateHistogramData(data, numericColumns) {
+  // 假設只用第一個數值欄位
+  const col = numericColumns[0] || Object.keys(data[0])[0];
+  const values = data.map(row => parseFloat(row[col])).filter(v => !isNaN(v));
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const binCount = Math.ceil(Math.sqrt(values.length));
+  const binSize = (max - min) / binCount || 1;
+  const bins = Array(binCount).fill(0);
+  values.forEach(v => {
+    let bin = Math.floor((v - min) / binSize);
+    if (bin === binCount) bin = binCount - 1;
+    bins[bin]++;
+  });
+  return {
+    data: [{
+      x: values,
+      type: 'histogram',
+      marker: { color: CHART_COLORS.primary[0] }
+    }],
+    layout: {
+      bargap: 0.05,
+      title: `${col} 直方圖`,
+      xaxis: { title: col },
+      yaxis: { title: '頻數' }
+    }
+  };
+}
+
+function generateBoxplotData(data, numericColumns) {
+  // 支援多個數值欄位
+  const datasets = numericColumns.map((col, i) => ({
+    y: data.map(row => parseFloat(row[col])).filter(v => !isNaN(v)),
+    type: 'box',
+    name: col,
+    marker: { color: CHART_COLORS.primary[i % CHART_COLORS.primary.length] }
+  }));
+  return {
+    data: datasets,
+    layout: {
+      title: `箱型圖`,
+      yaxis: { title: '數值' }
+    }
+  };
+}
+
+function generateViolinData(data, numericColumns) {
+  // 支援多個數值欄位
+  const datasets = numericColumns.map((col, i) => ({
+    y: data.map(row => parseFloat(row[col])).filter(v => !isNaN(v)),
+    type: 'violin',
+    name: col,
+    box: { visible: true },
+    meanline: { visible: true },
+    fillcolor: CHART_COLORS.primary[i % CHART_COLORS.primary.length],
+    line: { color: CHART_COLORS.border[i % CHART_COLORS.border.length] }
+  }));
+  return {
+    data: datasets,
+    layout: {
+      title: `小提琴圖`,
+      yaxis: { title: '數值' }
+    }
+  };
+}
+
 function App() {
   const [file, setFile] = useState(null);
   const [analysisResult, setAnalysisResult] = useState(null);
@@ -325,20 +392,24 @@ function App() {
           return generateHorizontalBarData(data, categoricalColumns, numericColumns);
         case 'stackedarea':
           return generateStackedAreaData(data, columns, numericColumns);
+
+        // === 統計圖表數據生成 ===
+        case 'histogram':
+          return generateHistogramData(data, numericColumns);
+        case 'boxplot':
+          return generateBoxplotData(data, numericColumns);
+        case 'violin':
+          return generateViolinData(data, numericColumns);
         
         // 新增：商業智慧圖表
         case 'gauge':
-          return generateGaugeChartData(data, numericColumns);
         case 'bullet':
-          return generateBulletChartData(data, numericColumns, categoricalColumns);
         case 'kpicard':
-          return generateKPICardData(data, numericColumns, categoricalColumns);
         case 'funnel':
-          return generateFunnelChartData(data, categoricalColumns, numericColumns);
         case 'sankey':
-          return generateSankeyChartData(data, categoricalColumns, numericColumns);
         case 'treemap':
-          return generateTreemapChartData(data, categoricalColumns, numericColumns);
+          // 返回 null，讓 createChart 函數直接調用後端 API
+          return null;
         
         default:
           return generateBarChartData(data, categoricalColumns, numericColumns);
